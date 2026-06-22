@@ -865,7 +865,7 @@ RES003,,,,,,,,`;
 
                 <div className="hidden xl:flex items-center space-x-2 text-sm text-slate-100 font-medium bg-black/10 px-4 py-2.5 rounded-full border border-white/10">
                   <IconClock className="w-4 h-4 text-red-200" />
-                  <span>Update: 1 Juni 2026</span>
+                  <span>Update: {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
                 </div>
                 
                 <div className="relative cursor-pointer group" onClick={() => setIsAlarmPopupOpen(true)}>
