@@ -783,13 +783,13 @@ RES003,,,,,,,,`;
         e.preventDefault();
         if (!mainTrackingInput.trim()) return;
 
-        const inputTrimmed = mainTrackingInput.trim();
+        const inputTrimmed = mainTrackingInput.trim().toUpperCase();
         const found = data.find(d => 
-            d.id === inputTrimmed || 
-            d.reservation === inputTrimmed ||
-            (d.trackingData && d.trackingData.prNum === inputTrimmed) ||
-            (d.trackingData && d.trackingData.poNum === inputTrimmed) ||
-            d.materials.some(m => m.prNum === inputTrimmed || m.poNum === inputTrimmed)
+            d.id.toUpperCase() === inputTrimmed || 
+            (d.reservation && d.reservation.toUpperCase() === inputTrimmed) ||
+            (d.trackingData && d.trackingData.prNum && d.trackingData.prNum.toUpperCase() === inputTrimmed) ||
+            (d.trackingData && d.trackingData.poNum && d.trackingData.poNum.toUpperCase() === inputTrimmed) ||
+            d.materials.some(m => (m.prNum && m.prNum.toUpperCase() === inputTrimmed) || (m.poNum && m.poNum.toUpperCase() === inputTrimmed))
         );
         
         if (found) {
@@ -1109,7 +1109,8 @@ RES003,,,,,,,,`;
                                      <li 
                                        key={`sug-${sug.id}`}
                                        className="px-5 py-3 hover:bg-rose-50 cursor-pointer border-b border-slate-100 last:border-0 flex flex-col group"
-                                       onClick={() => {
+                                       onMouseDown={(e) => {
+                                         e.preventDefault();
                                          setMainTrackingInput(sug.id);
                                          setShowSuggestions(false);
                                        }}
@@ -1620,6 +1621,7 @@ RES003,,,,,,,,`;
                            onChange={(e) => {
                              const found = data.find(d => d.id === e.target.value);
                              if (found) {
+                               setSelectedTrackingMO(found.id);
                                const osCount = found.materials.filter(m => m.statDesc.toUpperCase().includes('OUTSTANDING')).length;
                                if (!found.hasPR && osCount > 0) {
                                    setOsAlert({ show: true, count: osCount, foundMo: found });
@@ -1711,7 +1713,8 @@ RES003,,,,,,,,`;
                                               <li 
                                                 key={`mat-sug-${idx}`}
                                                 className="px-4 py-3 hover:bg-rose-50 cursor-pointer flex flex-col group transition-colors"
-                                                onClick={() => {
+                                                onMouseDown={(e) => {
+                                                  e.preventDefault();
                                                   setSelectedTrackingItemIndex(String(originalIndex));
                                                   setMaterialSearchInput(mat.material);
                                                   setShowMaterialSuggestions(false);
