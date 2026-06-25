@@ -54,22 +54,21 @@
     const TODAY = new Date('2026-06-01'); // Konteks waktu saat ini
 
     // --- MOCK DATA FALLBACK (Untuk menghindari error Failed to Fetch karena CORS di iframe) ---
-    const MOCK_MB25_CSV = `Order,Requirements date,Material,Material Description,Reservation,Requirement Quantity,Removed quantity,Movement Type Text,Goods recipient
-100001,15/05/2026,123456,HYDRAULIC PUMP CRITICAL,RES001,10,10,Transfer,PT ADARO
-100002,28/05/2026,234567,ENGINE VALVE OVH,RES002,5,2,Transfer,PT SIS
-100003,30/05/2026,345678,O-RING RUBBER,RES003,50,0,Transfer,PT ADARO
-100004,25/05/2026,456789,CONTROL UNIT STO MANEUVER,RES004,1,0,Transfer,PT PPA
-100005,10/05/2026,567890,GEAR BOX SEAL,RES005,12,12,Transfer,PT SIS`;
+    const MOCK_MB25_CSV = `Stat. Desc,Reservation,Item Res,Creation Res Date,Req Date,Plant,Plant Name,Material,Part Number,Description,Brand,Unit Model,Mat. Type,Qty Res,UoM,Equipment,Equipment Desc,Mtc. Order,Created by,Priority,PR,Item,Quantity,UoM,Release Strategy,Release State,Release Date,Delivery Date PR,Create Date PR,Aging Res to PR,PO,Item,Requestor,Quantity,UoM,Delivery Date PO,Create Date PO,Aging Res to PO,Amount Price,Vendor,GR,Quantity,UoM,Posting Date,Created Date GR,S.loc GR,Diterima,Diserahkan,Aging Res to GR,GI,Quantity,UoM,Posting Date,Create Date GI,Diterima,Diserahkan,Aging Res to GI,Maint. Order Desc.
+Transfer,RES001,10,14/05/2026,15/05/2026,P1,BJM,123456,PN1,HYDRAULIC PUMP CRITICAL,CAT,777,SPA,10,PC,EQ1,EXCAVATOR,100001,USER1,HIGH,PR1,10,10,PC,S1,REL,16/05/2026,20/05/2026,15/05/2026,1,PO1,10,REQ1,10,PC,22/05/2026,17/05/2026,2,1000,PT ADARO,GR1,10,PC,23/05/2026,23/05/2026,SL1,RCV1,SND1,1,GI1,10,PC,24/05/2026,24/05/2026,RCV2,SND2,1,DESC1
+Transfer,RES002,10,27/05/2026,28/05/2026,P1,BJM,234567,PN2,ENGINE VALVE OVH,KOM,PC200,SPA,5,PC,EQ2,DOZER,100002,USER2,MED,PR2,10,5,PC,S1,REL,28/05/2026,30/05/2026,28/05/2026,1,PO2,10,REQ2,5,PC,02/06/2026,29/05/2026,1,2000,PT SIS,GR2,2,PC,03/06/2026,03/06/2026,SL1,RCV1,SND1,1,,,,,,,,
+Transfer,RES003,10,29/05/2026,30/05/2026,P1,BJM,345678,PN3,O-RING RUBBER,CAT,777,SPA,50,PC,EQ3,EXCAVATOR,100003,USER1,LOW,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Transfer,RES004,10,24/05/2026,25/05/2026,P1,BJM,456789,PN4,CONTROL UNIT STO MANEUVER,KOM,PC200,SPA,1,PC,EQ4,DOZER,100004,USER3,HIGH,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Transfer,RES005,10,09/05/2026,10/05/2026,P1,BJM,567890,PN5,GEAR BOX SEAL,CAT,777,SPA,12,PC,EQ5,EXCAVATOR,100005,USER2,MED,,,,,,,,,,,,,,,,,,PT SIS,GR3,12,PC,15/05/2026,15/05/2026,SL1,RCV1,SND1,1,GI2,12,PC,16/05/2026,16/05/2026,RCV2,SND2,1,DESC2`;
 
     const MOCK_ZMMR_CSV = `Tracking No.,Purch Req.,PR Date,PO Number,PO Date,Vendor Desc.,Vendor City,Delivery Date,GR Number,GR Posting Date
-RES001,PR90001,16/05/2026,PO80001,18/05/2026,INDOTECH PARTS,JAKARTA,22/05/2026,GR70001,23/05/2026
-RES002,PR90002,29/05/2026,,,,,
+RES001,PR1,16/05/2026,PO80001,18/05/2026,INDOTECH PARTS,JAKARTA,22/05/2026,GR70001,23/05/2026
+RES002,PR2,29/05/2026,,,,,
 RES003,,,,,,,,`;
 
-    const MOCK_ME2N_CSV = `Material,Purchasing Document,Supplier/Supplying Plant,Document Date
-456789,STO60001,MME,26/05/2026`;
+    const MOCK_ME2N_CSV = `Material,Purchasing Document,Supplier/Supplying Plant,Document Date,Still to be delivered (qty)
+456789,STO60001,MME,26/05/2026,1`;
 
-    // --- STREAMING_CHUNK:Rendering UI Icons... ---
     // --- INLINE SVG COMPONENTS (Menggantikan Lucide-React agar mandiri) ---
     const IconActivity = ({ className }) => (
       <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
@@ -120,7 +119,6 @@ RES003,,,,,,,,`;
       <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
     );
 
-    // --- STREAMING_CHUNK:Building Helper Functions... ---
     // --- HELPER FUNCTIONS ---
     const calculateDays = (dateStr) => {
       if (!dateStr) return 0;
@@ -233,7 +231,6 @@ RES003,,,,,,,,`;
       return alarms;
     };
 
-    // --- STREAMING_CHUNK:Setting Up Application Components... ---
     function App() {
       const [currentView, setCurrentView] = useState('track_trace'); // State: 'track_trace', 'dashboard', 'material_p1_bjm'
       
@@ -267,6 +264,8 @@ RES003,,,,,,,,`;
       const [isSyncing, setIsSyncing] = useState(false);
       const [isOfflineDemo, setIsOfflineDemo] = useState(false); // Menandai jika fetch gagal dan memakai offline data fallback
 
+      const [osAlert, setOsAlert] = useState({ show: false, count: 0, foundMo: null }); // State alert material outstanding
+
       // State khusus proteksi kata sandi halaman Dashboard / Plant Dept Material Monitoring
       const [isAuthenticated, setIsAuthenticated] = useState(false);
       const [isPassModalOpen, setIsPassModalOpen] = useState(false);
@@ -275,7 +274,7 @@ RES003,,,,,,,,`;
 
       // LOGIKA PENGUNCIAN SCROLL LATAR BELAKANG (BODY LOCK)
       useEffect(() => {
-        if (isTrackingModalOpen || isAlarmPopupOpen || isPassModalOpen) {
+        if (isTrackingModalOpen || isAlarmPopupOpen || isPassModalOpen || osAlert.show) {
           document.body.style.overflow = 'hidden';
         } else {
           document.body.style.overflow = 'unset';
@@ -283,9 +282,8 @@ RES003,,,,,,,,`;
         return () => {
           document.body.style.overflow = 'unset';
         };
-      }, [isTrackingModalOpen, isAlarmPopupOpen, isPassModalOpen]);
+      }, [isTrackingModalOpen, isAlarmPopupOpen, isPassModalOpen, osAlert.show]);
 
-      // --- STREAMING_CHUNK:Fetching Data from Google Sheets... ---
       // LOGIKA PENARIKAN DATA (DENGAN SINKRONISASI OTOMATIS 30 DETIK & FALLBACK DATA OFFLINE JIKA FAILED TO FETCH)
       useEffect(() => {
         const fetchSheetData = async () => {
@@ -296,15 +294,19 @@ RES003,,,,,,,,`;
               setIsSyncing(true);
             }
 
-            const pubUrlMB25 = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRzwuSphi-L92GNjrTnXTyjctg7yH97AFctKnnsxrcbhc2mBXbyEEx-YAeoi38u1JQMgdLCW9QRSfwW/pub?gid=400485711&single=true&output=csv';
-            const pubUrlZMMR = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRzwuSphi-L92GNjrTnXTyjctg7yH97AFctKnnsxrcbhc2mBXbyEEx-YAeoi38u1JQMgdLCW9QRSfwW/pub?gid=322791016&single=true&output=csv';
-            const pubUrlME2N = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRzwuSphi-L92GNjrTnXTyjctg7yH97AFctKnnsxrcbhc2mBXbyEEx-YAeoi38u1JQMgdLCW9QRSfwW/pub?gid=538866573&single=true&output=csv';
+            const pubUrlMB25 = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ9PTQy_Zw8EddPnpQz-EIkRMUpZzkL5CDZfvl8KzAQJUszvxAKKX9f0xEzy6cgSiOm-mk1-1dCDrcq/pub?gid=159175688&single=true&output=csv';
+            const pubUrlZMMR = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT_Dmy-T0yVhru-z94jRd9J9JHMXHplKQgcC_G8PkyJnCyRjn2eCzrqEYxfUfDepWIK16S8Pv0ZLgls/pub?gid=359399947&single=true&output=csv';
+            const pubUrlME2N = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTxP2PKbRo0V7kbZiK9xC4nxkkYbRBD1mI4hI7muskuuLUTrZg7AHTsLxi4VdUbzhIu6KiVSIEoq5kS/pub?gid=1264284859&single=true&output=csv';
             const pubUrlP1BJM = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQI4Sp66GKCndOO_8kjcTKK8xOeoU5qqTAAYbYjF2lCfwxbbXW2b-DPSnKBEkYgZ6J3z2y3kuaPJ1Zl/pub?gid=715439143&single=true&output=csv';
+            const pubUrlMB51 = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTA_SdvI-c_F1z4QY3qWDaMjRaPXLHyr6DXuE9LqyhuGY-EMvpHMJttbQYFU2sRhoG2mkwdbqoecN3q/pub?gid=741630845&single=true&output=csv';
+            const pubUrlMB52 = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQtbPxzCi99CQnkNkvlhSNd0Ie6ewDVeaRYxDUz8b73_yNzgStBGtDb0Oc2sOhZAGHeq-jDj333SmU8/pub?gid=383292189&single=true&output=csv'; // Tautan MB52 Baru
 
             let csvTextMB25 = '';
             let csvTextZMMR = '';
             let csvTextME2N = '';
             let csvTextP1BJM = '';
+            let csvTextMB51 = '';
+            let csvTextMB52 = '';
             let triggerFallback = false;
 
             // Fetch Data Utama MB25 (Dilengkapi try-catch internal agar aman dari CORS block)
@@ -328,7 +330,7 @@ RES003,,,,,,,,`;
                     if (csvTextZMMR.trim().startsWith('<')) csvTextZMMR = '';
                   }
               } catch (e) {
-                  console.warn("ZMMR004 fetch failed, using empty list", e);
+                  console.warn("ZMMR004 fetch failed", e);
                   csvTextZMMR = '';
               }
 
@@ -339,7 +341,7 @@ RES003,,,,,,,,`;
                     if (csvTextME2N.trim().startsWith('<')) csvTextME2N = '';
                   }
               } catch (e) {
-                  console.warn("ME2N fetch failed, using empty list", e);
+                  console.warn("ME2N fetch failed", e);
                   csvTextME2N = '';
               }
 
@@ -353,6 +355,29 @@ RES003,,,,,,,,`;
                   console.warn("P1 BJM fetch failed", e);
                   csvTextP1BJM = '';
               }
+
+              try {
+                  const resMB51 = await fetch(pubUrlMB51);
+                  if (resMB51.ok) {
+                    csvTextMB51 = await resMB51.text();
+                    if (csvTextMB51.trim().startsWith('<')) csvTextMB51 = '';
+                  }
+              } catch (e) {
+                  console.warn("MB51 fetch failed", e);
+                  csvTextMB51 = '';
+              }
+
+              try {
+                  const resMB52 = await fetch(pubUrlMB52);
+                  if (resMB52.ok) {
+                    csvTextMB52 = await resMB52.text();
+                    if (csvTextMB52.trim().startsWith('<')) csvTextMB52 = '';
+                  }
+              } catch (e) {
+                  console.warn("MB52 fetch failed", e);
+                  csvTextMB52 = '';
+              }
+
             } else {
               // Gunakan Data Fallback jika terblokir oleh browser security
               setIsOfflineDemo(true);
@@ -421,10 +446,20 @@ RES003,,,,,,,,`;
                     }
 
                     const cleanMat = materialNum.trim().replace(/^0+/, '');
+                    
+                    const qtyKey = Object.keys(row).find(k => k.toUpperCase().includes('ORDER QUANTITY') || k.toUpperCase() === 'QUANTITY' || k.toUpperCase() === 'QTY');
+                    const orderQty = qtyKey ? row[qtyKey] : '';
+
+                    const stillDelivKey = Object.keys(row).find(k => k.toUpperCase().includes('STILL TO BE DELIVERED') || k.toUpperCase().includes('STILL TO DELIV') || k.toUpperCase().includes('STILL TO'));
+                    const rawStillDeliv = stillDelivKey ? row[stillDelivKey] : '0';
+                    const stillDelivQty = parseFloat(String(rawStillDeliv).replace(/,/g, '')) || 0;
+
                     me2nMap.set(cleanMat, {
                       purchasingDoc: row['Purchasing Document'],
                       supplyingPlant: row['Supplier/Supplying Plant'],
-                      docDate: docDateVal
+                      docDate: docDateVal,
+                      stoQty: orderQty,
+                      stillDelivQty: stillDelivQty
                     });
                   }
                 });
@@ -445,8 +480,8 @@ RES003,,,,,,,,`;
                 });
 
                 parsedZMMR.forEach(row => {
-                  const trackNo = row['Tracking No.'];
-                  if (trackNo && trackNo.trim() !== '') {
+                  const prNumKey = row['Purch Req.'];
+                  if (prNumKey && prNumKey.trim() !== '') {
                     let prDateVal = null;
                     if (row['PR Date']) {
                       if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(row['PR Date'])) {
@@ -471,9 +506,9 @@ RES003,,,,,,,,`;
                       } else grDateVal = row['GR Posting Date'];
                     }
 
-                    if (!zmmrMap.has(trackNo) || (row['Purch Req.'] && !zmmrMap.get(trackNo).prNum)) {
-                       zmmrMap.set(trackNo, {
-                          prNum: row['Purch Req.'],
+                    if (!zmmrMap.has(prNumKey) || (row['PO Number'] && !zmmrMap.get(prNumKey).poNum)) {
+                       zmmrMap.set(prNumKey.trim(), {
+                          prNum: prNumKey.trim(),
                           prDate: prDateVal,
                           poNum: row['PO Number'],
                           poDate: poDateVal,
@@ -488,23 +523,101 @@ RES003,,,,,,,,`;
                 });
             }
 
+            // --- PROSES DATA MB51 (LOOKUP GI NUMBER) ---
+            const rowsMB51 = parseCSV(csvTextMB51);
+            const mb51Map = new Map();
+            if (rowsMB51.length > 1) {
+                const headersMB51 = rowsMB51[0].map(h => h ? h.replace(/"/g, '').trim() : '');
+                const parsedMB51 = rowsMB51.slice(1).map(row => {
+                  const rowObj = {};
+                  headersMB51.forEach((h, i) => {
+                      if (h) rowObj[h] = row[i] ? row[i].replace(/"/g, '').trim() : '';
+                  });
+                  return rowObj;
+                });
+
+                parsedMB51.forEach(row => {
+                  const moOrder = row['Order'];
+                  const matNo = row['Material'];
+                  if (moOrder && matNo) {
+                    const cleanMat = matNo.replace(/^0+/, '');
+                    
+                    let giDateVal = row['Posting Date'] || null;
+                    if (giDateVal && /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(giDateVal)) {
+                      const p = giDateVal.split(/[\/\-]/);
+                      giDateVal = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+                    }
+
+                    mb51Map.set(`${moOrder}_${cleanMat}`, {
+                      giNum: row['Material Document'],
+                      giDate: giDateVal || row['Posting Date']
+                    });
+                  }
+                });
+            }
+
+            // --- PROSES DATA MB52 (LOOKUP STOCK GUDANG / SOH) ---
+            const rowsMB52 = parseCSV(csvTextMB52);
+            const mb52Map = new Map();
+            if (rowsMB52.length > 1) {
+                const headersMB52 = rowsMB52[0].map(h => h ? h.replace(/"/g, '').trim() : '');
+                const parsedMB52 = rowsMB52.slice(1).map(row => {
+                  const rowObj = {};
+                  headersMB52.forEach((h, i) => {
+                      if (h) rowObj[h] = row[i] ? row[i].replace(/"/g, '').trim() : '';
+                  });
+                  return rowObj;
+                });
+
+                parsedMB52.forEach(row => {
+                  const matNo = row['Material'] || row['Material Number'];
+                  if (matNo) {
+                    const cleanMat = matNo.replace(/^0+/, '');
+                    const sloc = String(row['Storage Location'] || row['Sloc'] || row['Storage Loc.'] || '').toUpperCase();
+                    
+                    // Abaikan Stock Damaged, EX Unit, dan Used
+                    if (!sloc.includes('DAMAGED') && !sloc.includes('EX') && !sloc.includes('USED')) {
+                      // Fokus mengambil SOH secara presisi dari kolom "Unrestricted" sesuai format instruksi
+                      const qtyKey = Object.keys(row).find(k => k.trim().toUpperCase() === 'UNRESTRICTED' || k.trim().toUpperCase().includes('UNRESTRICTED'));
+                      const rawQty = qtyKey ? row[qtyKey] : '0';
+                      // Bersihkan angka dari koma pembatas ribuan sebelum diparse
+                      const qty = parseFloat(String(rawQty).replace(/,/g, '')) || 0;
+                      
+                      const currentQty = mb52Map.get(cleanMat) || 0;
+                      mb52Map.set(cleanMat, currentQty + qty);
+                    }
+                  }
+                });
+            }
+
             // --- 3. PROSES DATA MB25 ---
             const rowsMB25 = parseCSV(csvTextMB25);
-            if (rowsMB25.length < 2) throw new Error("Format data CSV utama (MB25) kosong atau tidak valid.");
+            if (rowsMB25.length < 2) throw new Error("Format data CSV utama (MB25/MO) kosong atau tidak valid.");
 
-            const headersMB25 = rowsMB25[0].map(h => h ? h.replace(/"/g, '').trim() : '');
+            const headersMB25 = rowsMB25[0].map((h, i) => {
+              let name = h ? h.replace(/"/g, '').trim() : '';
+              // Resolusi duplikasi nama header 'Quantity' khusus format baru MO
+              if (name === 'Quantity') {
+                  if (i > 45) return 'GI_Quantity';
+                  if (i > 38) return 'GR_Quantity';
+                  if (i > 29) return 'PO_Quantity';
+                  return 'PR_Quantity';
+              }
+              return name;
+            });
+
             const parsedMB25 = rowsMB25.slice(1).map(row => {
               const rowObj = {};
               headersMB25.forEach((h, i) => {
                   if(h) rowObj[h] = row[i] ? row[i].replace(/"/g, '').trim() : '';
               });
               return rowObj;
-            }).filter(item => item['Order'] && item['Order'].trim() !== '');
+            }).filter(item => (item['Mtc. Order'] && item['Mtc. Order'].trim() !== '') || (item['Order'] && item['Order'].trim() !== ''));
 
             const uniqueOrders = new Map();
 
             parsedMB25.forEach(item => {
-              let reqDateStr = item['Requirements date'] || '';
+              let reqDateStr = item['Req Date'] || item['Requirements date'] || '';
               let moDateVal = '2026-06-01';
               if (reqDateStr) {
                 if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(reqDateStr)) {
@@ -513,20 +626,26 @@ RES003,,,,,,,,`;
                 } else moDateVal = reqDateStr;
               }
 
-              let desc = String(item['Material Description'] || '').toUpperCase();
+              let desc = String(item['Description'] || item['Material Description'] || '').toUpperCase();
               let docType = 'Normal';
               if (desc.includes('OVH')) docType = 'OVH';
               if (desc.includes('CRITICAL')) docType = 'Critical';
 
-              const orderId = String(item['Order']);
+              const orderId = String(item['Mtc. Order'] || item['Order']);
               const reservationNo = String(item['Reservation'] || '').trim();
-              const qtyReq = Number(String(item['Requirement Quantity']).replace(/,/g, '')) || 0;
-              const qtyRec = Number(String(item['Removed quantity']).replace(/,/g, '')) || 0;
+              
+              // FILTER KEBAL TERHADAP NOISE SEPERTI DASH, 0, N/A, ATAU SPASI PADA KOLOM PR
+              const rawPR = String(item['PR'] || '').replace(/"/g, '').trim().toUpperCase();
+              const hasPR = rawPR !== '' && rawPR !== '-' && rawPR !== 'N/A' && rawPR !== '#N/A' && rawPR !== '0';
+              const prNoFromMO = hasPR ? String(item['PR']).trim() : '';
+              
+              const qtyReq = Number(String(item['Qty Res'] || item['Requirement Quantity'] || 0).replace(/,/g, '')) || 0;
+              const qtyRec = Number(String(item['GR_Quantity'] || item['GI_Quantity'] || item['Removed quantity'] || 0).replace(/,/g, '')) || 0;
 
-              const zmmrInfo = zmmrMap.get(reservationNo);
-              const hasPR = !!(zmmrInfo && zmmrInfo.prNum);
-              const prDateLookup = hasPR ? (zmmrInfo.prDate || moDateVal) : null;
-              const poDateLookup = (zmmrInfo && zmmrInfo.poNum) ? (zmmrInfo.poDate || moDateVal) : null;
+              const zmmrInfo = hasPR ? zmmrMap.get(prNoFromMO) : null;
+              
+              const prDateLookup = zmmrInfo ? zmmrInfo.prDate : null;
+              const poDateLookup = (zmmrInfo && zmmrInfo.poNum) ? zmmrInfo.poDate : null;
               const vendorDesc = zmmrInfo ? zmmrInfo.vendorDesc : '';
               const vendorCity = zmmrInfo ? zmmrInfo.vendorCity : '';
               const deliveryDate = zmmrInfo ? zmmrInfo.deliveryDate : '';
@@ -535,14 +654,22 @@ RES003,,,,,,,,`;
 
               const materialNo = item['Material'] ? String(item['Material']).trim() : '';
               const cleanMatNo = materialNo.replace(/^0+/, '');
+              
               const me2nInfo = me2nMap.get(cleanMatNo);
+              const mb51Info = mb51Map.get(`${orderId}_${cleanMatNo}`);
+              const mb52Qty = mb52Map.get(cleanMatNo) || 0; // Tarik SOH gudang dari MB52 Map
+
+              // PEMBACAAN STAT. DESC YANG FLEKSIBEL
+              const statDescKey = Object.keys(item).find(k => k.toUpperCase() === 'STAT. DESC' || k.toUpperCase().includes('STAT. DESC')) || 'Stat. Desc';
+              const rawStatDesc = String(item[statDescKey] || '').replace(/"/g, '').trim().toUpperCase();
 
               const materialDetail = {
                 material: materialNo || 'Unknown Part',
-                desc: String(item['Material Description'] || ''),
+                desc: String(item['Description'] || item['Material Description'] || ''),
                 reservation: reservationNo,
+                qtyReq: qtyReq,
                 hasPR: hasPR,
-                prNum: zmmrInfo ? zmmrInfo.prNum : null,
+                prNum: hasPR ? prNoFromMO : null,
                 prDate: prDateLookup,
                 poNum: zmmrInfo ? zmmrInfo.poNum : null,
                 poDate: poDateLookup,
@@ -554,7 +681,13 @@ RES003,,,,,,,,`;
                 stoNum: me2nInfo ? me2nInfo.purchasingDoc : null,
                 stoPlant: me2nInfo ? me2nInfo.supplyingPlant : null,
                 stoDate: me2nInfo ? me2nInfo.docDate : null,
-                isSTO: !!me2nInfo
+                stoQty: me2nInfo ? me2nInfo.stoQty : null,
+                stillDelivQty: me2nInfo ? me2nInfo.stillDelivQty : 0,
+                isSTO: !!me2nInfo && (me2nInfo.stillDelivQty > 0),
+                statDesc: rawStatDesc,
+                giNum: mb51Info ? mb51Info.giNum : null,
+                giDate: mb51Info ? mb51Info.giDate : null,
+                stockGudang: mb52Qty // Simpan data ketersediaan stock Gudang di detail material
               };
 
               if (!uniqueOrders.has(orderId)) {
@@ -567,7 +700,7 @@ RES003,,,,,,,,`;
                   prDate: prDateLookup, 
                   poDate: poDateLookup,
                   trackingData: {
-                    prNum: zmmrInfo ? zmmrInfo.prNum : null,
+                    prNum: hasPR ? prNoFromMO : null,
                     poNum: zmmrInfo ? zmmrInfo.poNum : null,
                     vendorDesc,
                     vendorCity,
@@ -575,10 +708,10 @@ RES003,,,,,,,,`;
                     grNum,
                     grDate
                   },
-                  status: item['Movement Type Text'] || item['Reserv. status'] || 'MO Created',
+                  status: item['Stat. Desc'] || item['Movement Type Text'] || item['Reserv. status'] || 'MO Created',
                   qtyReq: qtyReq,
                   qtyRec: qtyRec,
-                  vendor: item['Goods recipient'] || item['User Name'] || 'Unknown',
+                  vendor: item['Vendor'] || item['Requestor'] || item['Goods recipient'] || item['User Name'] || 'Unknown',
                   materials: [materialDetail]
                 });
               } else {
@@ -587,12 +720,12 @@ RES003,,,,,,,,`;
                 existing.qtyRec += qtyRec;
                 existing.materials.push(materialDetail);
                 
-                if (hasPR) { 
+                if (hasPR && !existing.hasPR) { 
                    existing.hasPR = true; 
                    existing.prDate = prDateLookup; 
-                   existing.trackingData.prNum = zmmrInfo.prNum; 
+                   existing.trackingData.prNum = prNoFromMO; 
                 }
-                if (poDateLookup) { 
+                if (poDateLookup && !existing.poDate) { 
                    existing.poDate = poDateLookup; 
                    existing.trackingData.poNum = zmmrInfo.poNum;
                    existing.trackingData.vendorDesc = vendorDesc;
@@ -604,7 +737,18 @@ RES003,,,,,,,,`;
               }
             });
 
-            setData(Array.from(uniqueOrders.values()));
+            const finalData = Array.from(uniqueOrders.values());
+            
+            // Mengurutkan Material: Status OUTSTANDING selalu diletakkan di urutan teratas
+            finalData.forEach(mo => {
+              mo.materials.sort((a, b) => {
+                const aOS = a.statDesc.toUpperCase().includes('OUTSTANDING') ? 1 : 0;
+                const bOS = b.statDesc.toUpperCase().includes('OUTSTANDING') ? 1 : 0;
+                return bOS - aOS; 
+              });
+            });
+
+            setData(finalData);
           } catch (error) {
             console.error("Gagal menarik data:", error);
             setErrorMsg(error.message);
@@ -623,27 +767,42 @@ RES003,,,,,,,,`;
         return () => clearInterval(intervalId);
       }, [syncCount]);
 
-      // --- STREAMING_CHUNK:Processing Event Handlers... ---
+      const openTrackingModalInternal = (found) => {
+        setSelectedTrackingMO(found.id);
+        if (found.materials.length === 1) {
+          setSelectedTrackingItemIndex('0');
+          setMaterialSearchInput(found.materials[0].material);
+        } else {
+          setSelectedTrackingItemIndex('');
+          setMaterialSearchInput('');
+        }
+        setIsTrackingModalOpen(true);
+      };
+
       const handleMainTrackSubmit = (e) => {
         e.preventDefault();
         if (!mainTrackingInput.trim()) return;
 
-        const found = data.find(d => d.id === mainTrackingInput.trim() || d.reservation === mainTrackingInput.trim());
+        const inputTrimmed = mainTrackingInput.trim();
+        const found = data.find(d => 
+            d.id === inputTrimmed || 
+            d.reservation === inputTrimmed ||
+            (d.trackingData && d.trackingData.prNum === inputTrimmed) ||
+            (d.trackingData && d.trackingData.poNum === inputTrimmed) ||
+            d.materials.some(m => m.prNum === inputTrimmed || m.poNum === inputTrimmed)
+        );
+        
         if (found) {
             setMainTrackingError('');
-            setSelectedTrackingMO(found.id);
             
-            if (found.materials.length === 1) {
-              setSelectedTrackingItemIndex('0');
-              setMaterialSearchInput(found.materials[0].material);
+            const osCount = found.materials.filter(m => m.statDesc.toUpperCase().includes('OUTSTANDING')).length;
+            if (!found.hasPR && osCount > 0) {
+                setOsAlert({ show: true, count: osCount, foundMo: found });
             } else {
-              setSelectedTrackingItemIndex('');
-              setMaterialSearchInput('');
+                openTrackingModalInternal(found);
             }
-            
-            setIsTrackingModalOpen(true);
         } else {
-            setMainTrackingError("Nomor MO atau Reservation tidak ditemukan di dalam sistem aktif.");
+            setMainTrackingError("Nomor MO, Reservation, PR, atau PO tidak ditemukan di dalam sistem aktif.");
         }
       };
 
@@ -702,7 +861,10 @@ RES003,,,,,,,,`;
         const lowerInput = mainTrackingInput.toLowerCase();
         return data.filter(d => 
           d.id.toLowerCase().includes(lowerInput) || 
-          (d.reservation && d.reservation.toLowerCase().includes(lowerInput))
+          (d.reservation && d.reservation.toLowerCase().includes(lowerInput)) ||
+          (d.trackingData && d.trackingData.prNum && d.trackingData.prNum.toLowerCase().includes(lowerInput)) ||
+          (d.trackingData && d.trackingData.poNum && d.trackingData.poNum.toLowerCase().includes(lowerInput)) ||
+          d.materials.some(m => (m.prNum && m.prNum.toLowerCase().includes(lowerInput)) || (m.poNum && m.poNum.toLowerCase().includes(lowerInput)))
         ).slice(0, 5);
       }, [mainTrackingInput, data]);
 
@@ -779,7 +941,6 @@ RES003,,,,,,,,`;
         );
       }
 
-      // --- STREAMING_CHUNK:Rendering Main View Area... ---
       return (
         <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-800 selection:bg-red-100 flex flex-col">
           
@@ -922,7 +1083,7 @@ RES003,,,,,,,,`;
                                <IconSearchCode className="w-8 h-8 text-slate-400 mr-3" />
                                <input 
                                   type="text" 
-                                  placeholder="Masukkan Nomor Material Order (MO) atau Reservation..." 
+                                  placeholder="Masukkan Nomor MO, Reservation, PR, atau PO..." 
                                   className="w-full text-lg text-slate-800 placeholder-slate-400 font-semibold focus:outline-none bg-transparent"
                                   value={mainTrackingInput}
                                   onChange={(e) => { 
@@ -940,19 +1101,28 @@ RES003,,,,,,,,`;
                              {/* Dropdown Suggestions */}
                              {showSuggestions && searchSuggestions.length > 0 && (
                                <ul className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-50 text-left">
-                                 {searchSuggestions.map((sug) => (
-                                   <li 
-                                     key={`sug-${sug.id}`}
-                                     className="px-5 py-3 hover:bg-rose-50 cursor-pointer border-b border-slate-100 last:border-0 flex flex-col group"
-                                     onClick={() => {
-                                       setMainTrackingInput(sug.id);
-                                       setShowSuggestions(false);
-                                     }}
-                                   >
-                                     <span className="font-extrabold text-slate-800 group-hover:text-[#9B2226] transition-colors">{sug.id}</span>
-                                     {sug.reservation && <span className="text-xs text-slate-500 font-medium">Res: {sug.reservation}</span>}
-                                   </li>
-                                 ))}
+                                 {searchSuggestions.map((sug) => {
+                                   const lowerInput = mainTrackingInput.toLowerCase();
+                                   const matchPR = (sug.trackingData && sug.trackingData.prNum && sug.trackingData.prNum.toLowerCase().includes(lowerInput)) ? sug.trackingData.prNum : sug.materials.find(m => m.prNum && m.prNum.toLowerCase().includes(lowerInput))?.prNum;
+                                   const matchPO = (sug.trackingData && sug.trackingData.poNum && sug.trackingData.poNum.toLowerCase().includes(lowerInput)) ? sug.trackingData.poNum : sug.materials.find(m => m.poNum && m.poNum.toLowerCase().includes(lowerInput))?.poNum;
+                                   return (
+                                     <li 
+                                       key={`sug-${sug.id}`}
+                                       className="px-5 py-3 hover:bg-rose-50 cursor-pointer border-b border-slate-100 last:border-0 flex flex-col group"
+                                       onClick={() => {
+                                         setMainTrackingInput(sug.id);
+                                         setShowSuggestions(false);
+                                       }}
+                                     >
+                                       <span className="font-extrabold text-slate-800 group-hover:text-[#9B2226] transition-colors">{sug.id}</span>
+                                       <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                                         {sug.reservation && <span className="text-xs text-slate-500 font-medium">Res: {sug.reservation}</span>}
+                                         {matchPR && <span className="text-xs text-indigo-600 font-bold bg-indigo-50 border border-indigo-100 px-1.5 rounded">PR: {matchPR}</span>}
+                                         {matchPO && <span className="text-xs text-emerald-600 font-bold bg-emerald-50 border border-emerald-100 px-1.5 rounded">PO: {matchPO}</span>}
+                                       </div>
+                                     </li>
+                                   );
+                                 })}
                                </ul>
                              )}
                           </div>
@@ -1218,15 +1388,12 @@ RES003,,,,,,,,`;
                                     )}
 
                                     <button onClick={() => { 
-                                      setSelectedTrackingMO(item.id); 
-                                      if (item.materials.length === 1) {
-                                        setSelectedTrackingItemIndex('0');
-                                        setMaterialSearchInput(item.materials[0].material);
+                                      const osCount = item.materials.filter(m => m.statDesc.toUpperCase().includes('OUTSTANDING')).length;
+                                      if (!item.hasPR && osCount > 0) {
+                                          setOsAlert({ show: true, count: osCount, foundMo: item });
                                       } else {
-                                        setSelectedTrackingItemIndex('');
-                                        setMaterialSearchInput('');
+                                          openTrackingModalInternal(item);
                                       }
-                                      setIsTrackingModalOpen(true); 
                                     }} className="mt-1.5 inline-flex items-center justify-center bg-white hover:bg-slate-50 text-slate-700 text-[10px] font-bold px-3 py-1.5 rounded-md border border-slate-300 shadow-sm w-fit transition-all hover:border-[#9B2226]/50 hover:text-[#9B2226]">
                                       <IconMapPin className="w-3 h-3 mr-1.5" /> Lacak Pengiriman & ETA
                                     </button>
@@ -1253,7 +1420,6 @@ RES003,,,,,,,,`;
               </div>
             )}
 
-            {/* --- STREAMING_CHUNK:Rendering View P1 BJM... --- */}
             {/* VIEW 3: MATERIAL P1 BJM */}
             {currentView === 'material_p1_bjm' && (
               <div className="w-full bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#020617] relative overflow-hidden min-h-[calc(100vh-80px)]">
@@ -1452,14 +1618,14 @@ RES003,,,,,,,,`;
                            className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#9B2226]/30 transition shadow-sm"
                            value={selectedTrackingMO}
                            onChange={(e) => {
-                             setSelectedTrackingMO(e.target.value);
                              const found = data.find(d => d.id === e.target.value);
-                             if(found && found.materials.length === 1) {
-                               setSelectedTrackingItemIndex('0');
-                               setMaterialSearchInput(found.materials[0].material);
-                             } else {
-                               setSelectedTrackingItemIndex('');
-                               setMaterialSearchInput('');
+                             if (found) {
+                               const osCount = found.materials.filter(m => m.statDesc.toUpperCase().includes('OUTSTANDING')).length;
+                               if (!found.hasPR && osCount > 0) {
+                                   setOsAlert({ show: true, count: osCount, foundMo: found });
+                               } else {
+                                   openTrackingModalInternal(found);
+                               }
                              }
                            }}
                          >
@@ -1484,11 +1650,14 @@ RES003,,,,,,,,`;
                         const trk = data.find(d => d.id === selectedTrackingMO);
                         if (!trk) return null;
 
-                        // Filter material berdasarkan input text/angka
-                        const filteredMaterials = trk.materials.filter(mat => 
-                          mat.material.toLowerCase().includes(materialSearchInput.toLowerCase()) ||
-                          mat.desc.toLowerCase().includes(materialSearchInput.toLowerCase())
-                        );
+                        // Filter material berdasarkan input text/angka (termasuk PR dan PO)
+                        const filteredMaterials = trk.materials.filter(mat => {
+                          const searchLower = materialSearchInput.toLowerCase();
+                          return mat.material.toLowerCase().includes(searchLower) ||
+                                 mat.desc.toLowerCase().includes(searchLower) ||
+                                 (mat.prNum && mat.prNum.toLowerCase().includes(searchLower)) ||
+                                 (mat.poNum && mat.poNum.toLowerCase().includes(searchLower));
+                        });
 
                         return (
                             <div className="animate-fade-in relative space-y-4">
@@ -1520,7 +1689,7 @@ RES003,,,,,,,,`;
                                     <div className="relative">
                                       <input 
                                          type="text" 
-                                         placeholder="Ketik Nomor Material atau Nama Part..." 
+                                         placeholder="Ketik No Material, Nama Part, PR, atau PO..." 
                                          className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#9B2226]/30 transition shadow-sm"
                                          value={materialSearchInput}
                                          onChange={(e) => {
@@ -1550,6 +1719,12 @@ RES003,,,,,,,,`;
                                               >
                                                 <span className="font-extrabold text-slate-800 group-hover:text-[#9B2226] transition-colors">{mat.material}</span>
                                                 <span className="text-xs text-slate-500 font-medium truncate">{mat.desc}</span>
+                                                {(mat.prNum || mat.poNum) && (
+                                                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                                                    {mat.prNum && <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 border border-indigo-100 px-1.5 rounded">PR: {mat.prNum}</span>}
+                                                    {mat.poNum && <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 border border-emerald-100 px-1.5 rounded">PO: {mat.poNum}</span>}
+                                                  </div>
+                                                )}
                                               </li>
                                             );
                                           })}
@@ -1579,98 +1754,193 @@ RES003,,,,,,,,`;
                           const mat = trk.materials[selectedTrackingItemIndex];
                           if (!mat) return null;
                           
+                          const isMoClosedComplete = !trk.hasPR && trk.materials.length > 0 && trk.materials.every(m => m.statDesc.includes('COMPLETE'));
+                          const hasOS = trk.materials.some(m => m.statDesc.toUpperCase().includes('OUTSTANDING'));
+                          const isMatComplete = mat.statDesc.toUpperCase().includes('COMPLETE');
+                          const showGI = !trk.hasPR && hasOS && isMatComplete && mat.giNum;
+                          
                           const isSTO = !mat.hasPR && mat.isSTO;
+
+                          // Kondisi untuk menandakan bahwa kita masih menunggu PR/STO dibuat
+                          const isWaitingForPRorSTO = !mat.hasPR && mat.statDesc.toUpperCase().includes('OUTSTANDING') && !mat.giNum && !(mat.stockGudang >= mat.qtyReq && mat.stockGudang > 0) && !mat.isSTO;
 
                           // Perhitungan Tanggal ETA Kustom Berdasarkan Supplying Plant (STO)
                           const stoEtaDetails = getStoEtaDetails(mat.stoPlant, mat.stoDate);
                           const calculatedStoEtaDate = (isSTO && stoEtaDetails.hasRule) ? stoEtaDetails.date : (mat.deliveryDate || mat.stoDate);
-                          const isEtaOverdue = calculatedStoEtaDate && isDateOverdue(calculatedStoEtaDate) && !mat.grNum;
+                          
+                          // Mencegah ETA menjadi overdue/alarm jika masih menunggu PR/STO dibuat
+                          const isEtaOverdue = calculatedStoEtaDate && isDateOverdue(calculatedStoEtaDate) && !mat.grNum && !isWaitingForPRorSTO;
 
-                          const steps = [
-                            { title: "Material Order Dibuat", date: trk.moDate, active: true, desc: `Order: ${trk.id} (Tgl: ${trk.moDate}) - Part: ${mat.material}`, isFinal: false, isOverdue: false },
-                            
-                            isSTO ? { 
-                              title: "STO Maneuver (No PR Required)", 
-                              date: mat.stoDate, 
-                              active: true, 
-                              desc: `Maneuver STO via ME2N - Supplying Plant: ${mat.stoPlant}`, 
-                              isFinal: false, 
-                              isOverdue: false 
-                            } : { 
-                              title: "Purchase Requisition (PR)", 
-                              date: mat.prDate, 
-                              active: mat.hasPR, 
-                              desc: mat.hasPR && mat.prNum ? `PR No: ${mat.prNum} (Tgl: ${mat.prDate})` : "Belum di-release", 
-                              isFinal: false, 
-                              isOverdue: false 
-                            },
-                            
-                            isSTO ? { 
-                              title: "Purchasing Document (STO)", 
-                              date: mat.stoDate, 
-                              active: true, 
-                              desc: `Doc No: ${mat.stoNum} (Tgl: ${mat.stoDate})`, 
-                              isFinal: false, 
-                              isOverdue: false 
-                            } : { 
-                              title: "Purchase Order (PO)", 
-                              date: mat.poDate, 
-                              active: !!mat.poDate, 
-                              desc: mat.poNum ? `PO No: ${mat.poNum} (Tgl: ${mat.poDate})` : "Menunggu PO Number diterbitkan", 
-                              isFinal: false, 
-                              isOverdue: false 
-                            },
+                          let steps = [];
 
-                            { title: "Vendor Processing", date: mat.poDate || mat.stoDate, active: !!mat.vendorDesc || isSTO, desc: mat.vendorDesc ? `${mat.vendorDesc} - ${mat.vendorCity}` : (isSTO ? `Supplying: ${mat.stoPlant}` : "Menunggu konfirmasi Vendor"), isFinal: false, isOverdue: false },
-                            { 
-                              title: "Estimasi Kedatangan (ETA)", 
-                              date: calculatedStoEtaDate, 
-                              active: !!calculatedStoEtaDate || isSTO, 
-                              desc: mat.deliveryDate ? `Tiba di tujuan pada: ${mat.deliveryDate}` : (isSTO ? `Estimasi STO: ${calculatedStoEtaDate}` : "Tanggal resi belum tersedia"), 
-                              isFinal: false, 
-                              isOverdue: isEtaOverdue,
-                              remarks: (isSTO && stoEtaDetails.hasRule) ? "Estimasi berdasarkan Rata-rata Pengiriman Dari Site atau Supplying" : null
-                            },
-                            { title: "Good Receive (GR)", date: mat.grDate, active: !!mat.grNum, desc: mat.grNum ? `GR No: ${mat.grNum} (Status: Done / Diambil)` : "Barang belum diterima / GR", isFinal: true, isOverdue: false }
-                          ];
+                          if (isMoClosedComplete) {
+                            steps = [
+                              { title: "Material Order Dibuat", date: trk.moDate, active: true, desc: `Order: ${trk.id} (Tgl: ${trk.moDate}) - Part: ${mat.material} (Qty Res: ${mat.qtyReq})`, isFinal: false, isOverdue: false },
+                              { title: "MO Closed", date: TODAY.toLocaleDateString('id-ID'), active: true, desc: "Status MO tersebut 100% Complete", isFinal: true, isOverdue: false, remarks: "Diselesaikan via Stock / Manuver STO" }
+                            ];
+                          } else {
+                            let prOrStoStep;
+                            let isUsingStock = false;
+                            if (!mat.hasPR && mat.statDesc.toUpperCase().includes('OUTSTANDING') && !mat.giNum) {
+                                if (mat.stockGudang >= mat.qtyReq && mat.stockGudang > 0) {
+                                    isUsingStock = true;
+                                    prOrStoStep = {
+                                      title: "Alokasi Stock Gudang (MB52)",
+                                      date: TODAY.toLocaleDateString('id-ID'),
+                                      active: true,
+                                      desc: "Keterangan: Material ini akan menggunakan Stock Gudang",
+                                      isFinal: false,
+                                      isOverdue: false,
+                                      remarks: `Sisa Stock Tersedia: ${mat.stockGudang} PC`
+                                    };
+                                } else {
+                                    if (mat.isSTO) {
+                                        prOrStoStep = {
+                                          title: "Stock Transfer Order",
+                                          date: mat.stoDate || TODAY.toLocaleDateString('id-ID'),
+                                          active: true,
+                                          desc: `Purchasing Document: ${mat.stoNum} | Order Qty: ${mat.stoQty || '-'}`,
+                                          isFinal: false,
+                                          isOverdue: false,
+                                          remarks: `Supplying Plant: ${mat.stoPlant}`
+                                        };
+                                    } else {
+                                        prOrStoStep = {
+                                          title: "Purchase Requisition (PR)",
+                                          date: TODAY.toLocaleDateString('id-ID'),
+                                          active: false,
+                                          desc: "Belum di-release",
+                                          isFinal: false,
+                                          isOverdue: true,
+                                          remarks: "Waiting Creat PR / Creat STO"
+                                        };
+                                    }
+                                }
+                            } else {
+                                prOrStoStep = isSTO ? { 
+                                  title: "STO Maneuver (No PR Required)", 
+                                  date: mat.stoDate, 
+                                  active: true, 
+                                  desc: `Maneuver STO via ME2N - Supplying Plant: ${mat.stoPlant}`, 
+                                  isFinal: false, 
+                                  isOverdue: false 
+                                } : { 
+                                  title: "Purchase Requisition (PR)", 
+                                  date: mat.prDate, 
+                                  active: mat.hasPR, 
+                                  desc: mat.hasPR && mat.prNum ? `PR No: ${mat.prNum} (Tgl: ${mat.prDate})` : "Belum di-release", 
+                                  isFinal: false, 
+                                  isOverdue: false 
+                                };
+                            }
+
+                            if (isUsingStock) {
+                              steps = [
+                                { title: "Material Order Dibuat", date: trk.moDate, active: true, desc: `Order: ${trk.id} (Tgl: ${trk.moDate}) - Part: ${mat.material} (Qty Res: ${mat.qtyReq})`, isFinal: false, isOverdue: false },
+                                prOrStoStep,
+                                { 
+                                  title: "Goods Issue (GI)", 
+                                  date: TODAY.toLocaleDateString('id-ID'), 
+                                  active: false, 
+                                  desc: "Barang belum di-GI", 
+                                  isFinal: false, 
+                                  isOverdue: true, 
+                                  remarks: "Lakukan GI agar item ini close" 
+                                }
+                              ];
+                            } else {
+                              steps = [
+                                { title: "Material Order Dibuat", date: trk.moDate, active: true, desc: `Order: ${trk.id} (Tgl: ${trk.moDate}) - Part: ${mat.material} (Qty Res: ${mat.qtyReq})`, isFinal: false, isOverdue: false },
+                                prOrStoStep,
+                                isSTO ? { 
+                                  title: "Purchasing Document (STO)", 
+                                  date: mat.stoDate, 
+                                  active: true, 
+                                  desc: `Doc No: ${mat.stoNum} (Tgl: ${mat.stoDate})`, 
+                                  isFinal: false, 
+                                  isOverdue: false 
+                                } : { 
+                                  title: "Purchase Order (PO)", 
+                                  date: mat.poDate, 
+                                  active: !!mat.poDate, 
+                                  desc: mat.poNum ? `PO No: ${mat.poNum} (Tgl: ${mat.poDate})` : "Menunggu PO Number diterbitkan", 
+                                  isFinal: false, 
+                                  isOverdue: false 
+                                },
+                                { title: "Vendor Processing", date: mat.poDate || mat.stoDate, active: !!mat.vendorDesc || isSTO, desc: mat.vendorDesc ? `${mat.vendorDesc} - ${mat.vendorCity}` : (isSTO ? `Supplying: ${mat.stoPlant}` : "Menunggu konfirmasi Vendor"), isFinal: false, isOverdue: false },
+                                { 
+                                  title: "Estimasi Kedatangan (ETA)", 
+                                  date: isWaitingForPRorSTO ? null : calculatedStoEtaDate, 
+                                  active: (!!calculatedStoEtaDate || isSTO) && !isWaitingForPRorSTO, 
+                                  desc: mat.deliveryDate ? `Tiba di tujuan pada: ${mat.deliveryDate}` : (isSTO ? `Estimasi STO: ${calculatedStoEtaDate}` : "Tanggal resi belum tersedia"), 
+                                  isFinal: false, 
+                                  isOverdue: isEtaOverdue,
+                                  remarks: (isSTO && stoEtaDetails.hasRule) ? "Estimasi berdasarkan Rata-rata Pengiriman Dari Site atau Supplying" : null
+                                },
+                                { title: "Good Receive (GR)", date: mat.grDate, active: !!mat.grNum, desc: mat.grNum ? `GR No: ${mat.grNum} (Status: Done / Diambil)` : "Barang belum diterima / GR", isFinal: !showGI, isOverdue: false }
+                              ];
+                            }
+                          }
+
+                          if (showGI) {
+                            steps.push({
+                              title: "Goods Issue (GI)",
+                              date: mat.giDate || TODAY.toLocaleDateString('id-ID'),
+                              active: true,
+                              desc: `GI No: ${mat.giNum} (Status: Complete)`,
+                              isFinal: true,
+                              isOverdue: false
+                            });
+                          }
 
                           return (
-                            <div className="relative pt-2 pb-2">
-                              <div className="absolute left-[11px] top-4 bottom-4 w-1 bg-slate-200 rounded-full"></div>
-                              
-                              <div className="space-y-8 relative">
-                                {steps.map((step, sIdx) => (
-                                   <div key={`step-${sIdx}`} className={`flex items-start ${step.active ? 'opacity-100' : 'opacity-40 transition-opacity'}`}>
-                                      <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center border-[3px] border-white shadow-md mt-0.5 flex-shrink-0 ${
-                                        step.isOverdue 
-                                          ? 'bg-rose-600 animate-pulse'
-                                          : step.active 
-                                            ? (step.isFinal ? 'bg-gradient-to-br from-emerald-500 to-green-600' : 'bg-gradient-to-br from-[#9B2226] to-[#C12A2F]') 
-                                            : 'bg-slate-300'
-                                      }`}>
-                                        {step.isFinal && step.active && <IconCheckCircle2 className="w-3 h-3 text-white" />}
-                                        {step.isOverdue && <IconAlertTriangle className="w-3 h-3 text-white" />}
-                                      </div>
-                                      
-                                      <div className={`ml-5 flex-1 bg-white p-3 rounded-lg border ${step.isOverdue ? 'border-rose-300 bg-rose-50/50' : (step.isFinal && step.active ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-100')} shadow-sm relative -mt-2`}>
-                                         <h3 className={`text-sm md:text-base font-extrabold ${step.isOverdue ? 'text-rose-700' : (step.active ? (step.isFinal ? 'text-emerald-700' : 'text-slate-800') : 'text-slate-500')}`}>{step.title}</h3>
-                                         <div className="flex flex-col md:flex-row md:items-center mt-1 md:space-x-2">
-                                            <span className={`text-xs md:text-sm font-extrabold ${step.isOverdue ? 'text-rose-600' : (step.active ? (step.isFinal ? 'text-emerald-600' : 'text-[#9B2226]') : 'text-slate-400')}`}>
-                                              {step.date || '--/--/----'}
-                                            </span>
-                                            {step.remarks && (
-                                              <span className="text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded md:inline-block block w-fit">
-                                                {step.remarks}
+                            <div className="flex flex-col">
+                              {isMoClosedComplete && (
+                                <div className="mb-6 bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex items-center shadow-sm z-10 relative">
+                                  <IconCheckCircle2 className="w-8 h-8 text-emerald-500 flex-shrink-0 mr-3" />
+                                  <div>
+                                    <p className="text-emerald-800 font-extrabold text-lg">Status MO tersebut 100% Complete</p>
+                                    <p className="text-emerald-600 text-sm font-medium">Seluruh material pada MO ini telah terpenuhi via Stock / STO.</p>
+                                  </div>
+                                </div>
+                              )}
+                              <div className="relative pt-2 pb-2">
+                                <div className="absolute left-[11px] top-4 bottom-4 w-1 bg-slate-200 rounded-full"></div>
+                                
+                                <div className="space-y-8 relative">
+                                  {steps.map((step, sIdx) => (
+                                     <div key={`step-${sIdx}`} className={`flex items-start ${step.active || step.isOverdue ? 'opacity-100' : 'opacity-40 transition-opacity'}`}>
+                                        <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center border-[3px] border-white shadow-md mt-0.5 flex-shrink-0 ${
+                                          step.isOverdue 
+                                            ? 'bg-rose-600 animate-pulse'
+                                            : step.active 
+                                              ? (step.isFinal ? 'bg-gradient-to-br from-emerald-500 to-green-600' : 'bg-gradient-to-br from-[#9B2226] to-[#C12A2F]') 
+                                              : 'bg-slate-300'
+                                        }`}>
+                                          {step.isFinal && step.active && <IconCheckCircle2 className="w-3 h-3 text-white" />}
+                                          {step.isOverdue && <IconAlertTriangle className="w-3 h-3 text-white" />}
+                                        </div>
+                                        
+                                        <div className={`ml-5 flex-1 p-3 rounded-lg border shadow-sm relative -mt-2 ${step.isOverdue ? 'border-rose-500 bg-rose-50 ring-1 ring-rose-500/50' : (step.isFinal && step.active ? 'border-emerald-200 bg-emerald-50/30 bg-white' : 'border-slate-100 bg-white')}`}>
+                                           <h3 className={`text-sm md:text-base font-extrabold ${step.isOverdue ? 'text-rose-800' : (step.active ? (step.isFinal ? 'text-emerald-700' : 'text-slate-800') : 'text-slate-500')}`}>{step.title}</h3>
+                                           <div className="flex flex-col md:flex-row md:items-center mt-1 md:space-x-2">
+                                              <span className={`text-xs md:text-sm font-extrabold ${step.isOverdue ? 'text-rose-700' : (step.active ? (step.isFinal ? 'text-emerald-600' : 'text-[#9B2226]') : 'text-slate-400')}`}>
+                                                {step.date || '--/--/----'}
                                               </span>
-                                            )}
-                                            <span className="hidden md:inline text-slate-300">|</span>
-                                            <span className={`text-xs md:text-sm font-medium ${step.isOverdue ? 'text-rose-700 font-bold' : (step.isFinal && step.active ? 'text-emerald-700 font-bold' : 'text-slate-500')} truncate mt-0.5 md:mt-0`}>
-                                              {step.isOverdue ? `${step.desc} - OVERDUE (Lakukan Follow Up)` : step.desc}
-                                            </span>
-                                         </div>
-                                      </div>
-                                   </div>
-                                ))}
+                                              {step.remarks && (
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded md:inline-block block w-fit ${step.isOverdue ? 'bg-rose-200 text-rose-800 border-rose-300 border' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                                                  {step.remarks}
+                                                </span>
+                                              )}
+                                              <span className="hidden md:inline text-slate-300">|</span>
+                                              <span className={`text-xs md:text-sm font-medium truncate mt-0.5 md:mt-0 ${step.isOverdue ? 'text-rose-800 font-bold' : (step.isFinal && step.active ? 'text-emerald-700 font-bold' : 'text-slate-500')}`}>
+                                                {step.isOverdue ? `${step.desc} - OVERDUE (Lakukan Follow Up)` : step.desc}
+                                              </span>
+                                           </div>
+                                        </div>
+                                     </div>
+                                  ))}
+                                </div>
                               </div>
                             </div>
                           );
@@ -1818,6 +2088,43 @@ RES003,,,,,,,,`;
               </div>
             </div>
           )}
+
+          {/* MODAL POP UP OUTSTANDING ALERT */}
+          {osAlert.show && (
+            <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 animate-fade-in">
+              <div className="bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-md border border-slate-200/60 overflow-hidden">
+                <div className="p-5 border-b border-rose-100 flex justify-between items-center bg-rose-50 text-rose-800">
+                  <div className="flex items-center space-x-2">
+                    <IconAlertTriangle className="w-6 h-6 text-rose-600 animate-pulse" />
+                    <h3 className="text-lg font-bold tracking-wide">Peringatan Outstanding</h3>
+                  </div>
+                </div>
+                <div className="p-6 text-center space-y-4">
+                  <p className="text-sm text-slate-600 font-medium">
+                    Terdapat <span className="font-extrabold text-rose-600 text-xl mx-1">{osAlert.count}</span> material yang masih berstatus <span className="font-bold text-slate-800">OUTSTANDING</span> pada MO ini.
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    MO ini belum sepenuhnya completed. Material yang Outstanding akan otomatis ditampilkan pada urutan teratas di dalam pelacakan.
+                  </p>
+                  <button 
+                    onClick={() => {
+                      const found = osAlert.foundMo;
+                      setOsAlert({ show: false, count: 0, foundMo: null });
+                      
+                      setSelectedTrackingMO(found.id);
+                      setSelectedTrackingItemIndex('0');
+                      setMaterialSearchInput(found.materials[0].material);
+                      setIsTrackingModalOpen(true);
+                    }}
+                    className="w-full bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white py-3 rounded-xl font-bold uppercase tracking-wider transition-all duration-300 shadow-md flex items-center justify-center mt-4"
+                  >
+                    Oke, Lacak Material
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       );
     }
