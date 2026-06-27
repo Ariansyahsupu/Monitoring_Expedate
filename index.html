@@ -465,9 +465,11 @@ RES003,,,,,,,,`;
                 });
             }
 
-            // --- 2. PROSES DATA ZMMR004 ---
+            // --- 2. PROSES DATA ZMMR004 (Multi-Layer Lookup PR & PO) ---
             const rowsZMMR = parseCSV(csvTextZMMR);
-            const zmmrMap = new Map();
+            const zmmrMapByPO = new Map();
+            const zmmrMapByPR = new Map();
+            const zmmrMapByRes = new Map();
             
             if (rowsZMMR.length > 1) {
                 const headersZMMR = rowsZMMR[0].map(h => h ? h.replace(/"/g, '').trim() : '');
@@ -480,8 +482,11 @@ RES003,,,,,,,,`;
                 });
 
                 parsedZMMR.forEach(row => {
-                  const prNumKey = row['Purch Req.'];
-                  if (prNumKey && prNumKey.trim() !== '') {
+                  const trackNo = String(row['Tracking No.'] || '').trim();
+                  const prNum = String(row['Purch Req.'] || '').trim();
+                  const poNum = String(row['PO Number'] || '').trim();
+
+                  if (trackNo || prNum || poNum) {
                     let prDateVal = null;
                     if (row['PR Date']) {
                       if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(row['PR Date'])) {
@@ -506,19 +511,21 @@ RES003,,,,,,,,`;
                       } else grDateVal = row['GR Posting Date'];
                     }
 
-                    if (!zmmrMap.has(prNumKey) || (row['PO Number'] && !zmmrMap.get(prNumKey).poNum)) {
-                       zmmrMap.set(prNumKey.trim(), {
-                          prNum: prNumKey.trim(),
-                          prDate: prDateVal,
-                          poNum: row['PO Number'],
-                          poDate: poDateVal,
-                          vendorDesc: row['Vendor Desc.'],
-                          vendorCity: row['Vendor City'],
-                          deliveryDate: row['Delivery Date'],
-                          grNum: row['GR Number'],
-                          grDate: grDateVal
-                       });
-                    }
+                    const info = {
+                      prNum: prNum,
+                      prDate: prDateVal,
+                      poNum: poNum,
+                      poDate: poDateVal,
+                      vendorDesc: row['Vendor Desc.'],
+                      vendorCity: row['Vendor City'],
+                      deliveryDate: row['Delivery Date'],
+                      grNum: row['GR Number'],
+                      grDate: grDateVal
+                    };
+
+                    if (poNum) zmmrMapByPO.set(poNum.toUpperCase(), info);
+                    if (prNum && !zmmrMapByPR.has(prNum.toUpperCase())) zmmrMapByPR.set(prNum.toUpperCase(), info);
+                    if (trackNo && !zmmrMapByRes.has(trackNo.toUpperCase())) zmmrMapByRes.set(trackNo.toUpperCase(), info);
                   }
                 });
             }
@@ -634,18 +641,34 @@ RES003,,,,,,,,`;
               const orderId = String(item['Mtc. Order'] || item['Order']);
               const reservationNo = String(item['Reservation'] || '').trim();
               
-              // FILTER KEBAL TERHADAP NOISE SEPERTI DASH, 0, N/A, ATAU SPASI PADA KOLOM PR
+              // FILTER KEBAL TERHADAP NOISE & EKSTRAK PO/PR LANGSUNG DARI MB25 PER MATERIAL
               const rawPR = String(item['PR'] || '').replace(/"/g, '').trim().toUpperCase();
               const hasPR = rawPR !== '' && rawPR !== '-' && rawPR !== 'N/A' && rawPR !== '#N/A' && rawPR !== '0';
               const prNoFromMO = hasPR ? String(item['PR']).trim() : '';
+
+              const rawPO = String(item['PO'] || '').replace(/"/g, '').trim().toUpperCase();
+              const hasPO = rawPO !== '' && rawPO !== '-' && rawPO !== 'N/A' && rawPO !== '#N/A' && rawPO !== '0';
+              const poNoFromMB25 = hasPO ? String(item['PO']).trim() : null;
               
               const qtyReq = Number(String(item['Qty Res'] || item['Requirement Quantity'] || 0).replace(/,/g, '')) || 0;
               const qtyRec = Number(String(item['GR_Quantity'] || item['GI_Quantity'] || item['Removed quantity'] || 0).replace(/,/g, '')) || 0;
 
-              const zmmrInfo = hasPR ? zmmrMap.get(prNoFromMO) : null;
+              const equipment = String(item['Equipment'] || '').trim();
+              const equipmentDesc = String(item['Equipment Desc'] || item['Equipment Description'] || '').trim();
+
+              // LOOKUP PRESISI TINGGI: Cek berdasarkan PO dulu, jika blank cek PR, jika blank cek Reservation
+              let zmmrInfo = null;
+              if (hasPO) zmmrInfo = zmmrMapByPO.get(rawPO);
+              if (!zmmrInfo && hasPR) zmmrInfo = zmmrMapByPR.get(rawPR);
+              if (!zmmrInfo && reservationNo) zmmrInfo = zmmrMapByRes.get(reservationNo.toUpperCase());
               
-              const prDateLookup = zmmrInfo ? zmmrInfo.prDate : null;
-              const poDateLookup = (zmmrInfo && zmmrInfo.poNum) ? zmmrInfo.poDate : null;
+              const finalPrNum = prNoFromMO || (zmmrInfo ? zmmrInfo.prNum : null);
+              const finalHasPR = !!finalPrNum;
+              const finalPoNum = poNoFromMB25 || (zmmrInfo ? zmmrInfo.poNum : null);
+
+              const prDateLookup = finalHasPR ? (zmmrInfo ? zmmrInfo.prDate : moDateVal) : null;
+              const poDateLookup = finalPoNum ? (zmmrInfo ? zmmrInfo.poDate : moDateVal) : null;
+              
               const vendorDesc = zmmrInfo ? zmmrInfo.vendorDesc : '';
               const vendorCity = zmmrInfo ? zmmrInfo.vendorCity : '';
               const deliveryDate = zmmrInfo ? zmmrInfo.deliveryDate : '';
@@ -657,7 +680,7 @@ RES003,,,,,,,,`;
               
               const me2nInfo = me2nMap.get(cleanMatNo);
               const mb51Info = mb51Map.get(`${orderId}_${cleanMatNo}`);
-              const mb52Qty = mb52Map.get(cleanMatNo) || 0; // Tarik SOH gudang dari MB52 Map
+              const mb52Qty = mb52Map.get(cleanMatNo) || 0;
 
               // PEMBACAAN STAT. DESC YANG FLEKSIBEL
               const statDescKey = Object.keys(item).find(k => k.toUpperCase() === 'STAT. DESC' || k.toUpperCase().includes('STAT. DESC')) || 'Stat. Desc';
@@ -668,10 +691,11 @@ RES003,,,,,,,,`;
                 desc: String(item['Description'] || item['Material Description'] || ''),
                 reservation: reservationNo,
                 qtyReq: qtyReq,
-                hasPR: hasPR,
-                prNum: hasPR ? prNoFromMO : null,
+                qtyRec: qtyRec,
+                hasPR: finalHasPR,
+                prNum: finalPrNum,
                 prDate: prDateLookup,
-                poNum: zmmrInfo ? zmmrInfo.poNum : null,
+                poNum: finalPoNum,
                 poDate: poDateLookup,
                 vendorDesc,
                 vendorCity,
@@ -696,12 +720,12 @@ RES003,,,,,,,,`;
                   reservation: reservationNo,
                   type: docType,
                   moDate: moDateVal,
-                  hasPR: hasPR,
+                  hasPR: finalHasPR,
                   prDate: prDateLookup, 
                   poDate: poDateLookup,
                   trackingData: {
-                    prNum: hasPR ? prNoFromMO : null,
-                    poNum: zmmrInfo ? zmmrInfo.poNum : null,
+                    prNum: finalPrNum,
+                    poNum: finalPoNum,
                     vendorDesc,
                     vendorCity,
                     deliveryDate,
@@ -712,6 +736,8 @@ RES003,,,,,,,,`;
                   qtyReq: qtyReq,
                   qtyRec: qtyRec,
                   vendor: item['Vendor'] || item['Requestor'] || item['Goods recipient'] || item['User Name'] || 'Unknown',
+                  equipment: equipment,
+                  equipmentDesc: equipmentDesc,
                   materials: [materialDetail]
                 });
               } else {
@@ -720,14 +746,14 @@ RES003,,,,,,,,`;
                 existing.qtyRec += qtyRec;
                 existing.materials.push(materialDetail);
                 
-                if (hasPR && !existing.hasPR) { 
+                if (finalHasPR && !existing.hasPR) { 
                    existing.hasPR = true; 
                    existing.prDate = prDateLookup; 
-                   existing.trackingData.prNum = prNoFromMO; 
+                   existing.trackingData.prNum = finalPrNum; 
                 }
                 if (poDateLookup && !existing.poDate) { 
                    existing.poDate = poDateLookup; 
-                   existing.trackingData.poNum = zmmrInfo.poNum;
+                   existing.trackingData.poNum = finalPoNum;
                    existing.trackingData.vendorDesc = vendorDesc;
                    existing.trackingData.vendorCity = vendorCity;
                    existing.trackingData.deliveryDate = deliveryDate;
@@ -1639,9 +1665,30 @@ RES003,,,,,,,,`;
                        </div>
                      ) : (
                        <div className="flex justify-between items-center bg-slate-50 border border-slate-200 p-3 rounded-xl shadow-sm">
-                          <div>
-                            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dokumen MO Terpilih</span>
-                            <span className="text-sm font-extrabold text-[#9B2226]">{selectedTrackingMO}</span>
+                          <div className="flex flex-col md:flex-row md:items-center md:space-x-6 space-y-2 md:space-y-0">
+                            <div>
+                              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dokumen MO Terpilih</span>
+                              <span className="text-sm font-extrabold text-[#9B2226]">{selectedTrackingMO}</span>
+                            </div>
+                            {(() => {
+                               const trk = data.find(d => d.id === selectedTrackingMO);
+                               if (trk && trk.equipment) {
+                                 // Kalkulasi persentase readiness MO
+                                 const progressPct = trk.qtyReq > 0 ? Math.round((trk.qtyRec / trk.qtyReq) * 100) : 0;
+                                 return (
+                                   <div className="md:border-l border-slate-300 md:pl-6">
+                                     <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nomor Unit / Equipment</span>
+                                     <div className="flex items-center space-x-2">
+                                       <span className="text-sm font-bold text-slate-700">{trk.equipment} <span className="font-medium text-slate-500">- {trk.equipmentDesc || 'N/A'}</span></span>
+                                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${progressPct === 100 ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : (progressPct > 0 ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-slate-100 text-slate-500 border-slate-200')}`}>
+                                         Readiness: {progressPct}%
+                                       </span>
+                                     </div>
+                                   </div>
+                                 );
+                               }
+                               return null;
+                            })()}
                           </div>
                           <button onClick={() => { setSelectedTrackingMO(''); setSelectedTrackingItemIndex(''); setMaterialSearchInput(''); }} className="text-xs font-bold text-slate-500 hover:text-slate-800 underline">Ubah MO</button>
                        </div>
@@ -1757,10 +1804,10 @@ RES003,,,,,,,,`;
                           const mat = trk.materials[selectedTrackingItemIndex];
                           if (!mat) return null;
                           
-                          const isMoClosedComplete = !trk.hasPR && trk.materials.length > 0 && trk.materials.every(m => m.statDesc.includes('COMPLETE'));
+                          // Pastikan MO dianggap "Closed" HANYA jika qtyRec (Terima) memenuhi qtyReq (Permintaan)
+                          const isMoClosedComplete = !trk.hasPR && trk.materials.length > 0 && trk.materials.every(m => m.statDesc.includes('COMPLETE') && m.qtyRec >= m.qtyReq);
                           const hasOS = trk.materials.some(m => m.statDesc.toUpperCase().includes('OUTSTANDING'));
                           const isMatComplete = mat.statDesc.toUpperCase().includes('COMPLETE');
-                          const showGI = !trk.hasPR && hasOS && isMatComplete && mat.giNum;
                           
                           const isSTO = !mat.hasPR && mat.isSTO;
 
@@ -1843,12 +1890,12 @@ RES003,,,,,,,,`;
                                 prOrStoStep,
                                 { 
                                   title: "Goods Issue (GI)", 
-                                  date: TODAY.toLocaleDateString('id-ID'), 
-                                  active: false, 
-                                  desc: "Barang belum di-GI", 
-                                  isFinal: false, 
-                                  isOverdue: true, 
-                                  remarks: "Lakukan GI agar item ini close" 
+                                  date: mat.giDate || TODAY.toLocaleDateString('id-ID'), 
+                                  active: !!mat.giNum, 
+                                  desc: mat.giNum ? `GI No: ${mat.giNum} (Status: Administrasi Close)` : "Barang belum di-GI", 
+                                  isFinal: true, 
+                                  isOverdue: !mat.giNum, 
+                                  remarks: mat.giNum ? "MO Closed" : "Lakukan GI agar item ini close" 
                                 }
                               ];
                             } else {
@@ -1880,20 +1927,18 @@ RES003,,,,,,,,`;
                                   isOverdue: isEtaOverdue,
                                   remarks: (isSTO && stoEtaDetails.hasRule) ? "Estimasi berdasarkan Rata-rata Pengiriman Dari Site atau Supplying" : null
                                 },
-                                { title: "Good Receive (GR)", date: mat.grDate, active: !!mat.grNum, desc: mat.grNum ? `GR No: ${mat.grNum} (Status: Done / Diambil)` : "Barang belum diterima / GR", isFinal: !showGI, isOverdue: false }
+                                { 
+                                  title: "Good Receive (GR)", 
+                                  date: mat.grDate, 
+                                  active: !!mat.grNum || isMatComplete, 
+                                  desc: mat.grNum ? `GR No: ${mat.grNum} (Qty: ${mat.qtyRec}/${mat.qtyReq})` : (isMatComplete ? `Status: Complete (Qty: ${mat.qtyRec}/${mat.qtyReq})` : "Barang belum diterima / GR"), 
+                                  isFinal: false, 
+                                  isOverdue: isMatComplete && mat.qtyRec < mat.qtyReq, 
+                                  remarks: (isMatComplete && mat.qtyRec < mat.qtyReq) ? "GR Partial mohon lakukan FU dan Kalibrasi stock atau lakukan stock opname" : (mat.grNum ? `Total Stock: ${mat.stockGudang} PC` : null) 
+                                },
+                                { title: "Goods Issue (GI)", date: mat.giDate, active: !!mat.giNum, desc: mat.giNum ? `GI No: ${mat.giNum} (Status: Administrasi Close)` : "Menunggu proses GI", isFinal: true, isOverdue: !!mat.grNum && !mat.giNum, remarks: mat.giNum ? "MO Closed" : (mat.grNum ? "Silakan lakukan GI" : null) }
                               ];
                             }
-                          }
-
-                          if (showGI) {
-                            steps.push({
-                              title: "Goods Issue (GI)",
-                              date: mat.giDate || TODAY.toLocaleDateString('id-ID'),
-                              active: true,
-                              desc: `GI No: ${mat.giNum} (Status: Complete)`,
-                              isFinal: true,
-                              isOverdue: false
-                            });
                           }
 
                           return (
