@@ -229,6 +229,7 @@
           const [showMaterialSuggestions, setShowMaterialSuggestions] = useState(false);
 
           const [selectedP1BjmFilter, setSelectedP1BjmFilter] = useState('');
+          const [locationFilter, setLocationFilter] = useState('All');
 
           const [syncCount, setSyncCount] = useState(0);
           const [isSyncing, setIsSyncing] = useState(false);
@@ -1035,8 +1036,27 @@
                  );
              }
 
+             if (locationFilter !== 'All') {
+                 filtered = filtered.filter(row => {
+                     const cnKey = Object.keys(row).find(k => k.toUpperCase() === 'CN' || k.toUpperCase().includes('NOMOR UNIT') || k.toUpperCase().includes('NO UNIT'));
+                     const cnVal = cnKey ? String(row[cnKey]).toUpperCase().trim().replace(/\s+/g, ' ') : '';
+                     const bjmUnits = ['HT 81050', 'HT 81047', 'HT 81197', 'HT 81149', 'HT 81112'];
+                     
+                     let loc = '-';
+                     if (bjmUnits.includes(cnVal)) {
+                         loc = 'BJM';
+                     } else if (cnVal.startsWith('HT')) {
+                         loc = 'PALARAN';
+                     }
+
+                     if (locationFilter === 'BJM') return loc === 'BJM';
+                     if (locationFilter === 'PALARAN') return loc === 'PALARAN';
+                     return true;
+                 });
+             }
+
              return filtered;
-          }, [dataP1Bjm, selectedP1BjmFilter, searchTermP1]);
+          }, [dataP1Bjm, selectedP1BjmFilter, searchTermP1, locationFilter]);
 
           const p1BjmChartData = useMemo(() => {
              if (filteredP1BjmData.length === 0) return { data: [], total: 0 };
@@ -1683,6 +1703,19 @@
                                </datalist>
                              </div>
                              
+                             <div className="relative">
+                               <select 
+                                 className="w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-[#9B2226]/50 focus:border-[#9B2226] transition-all font-bold text-slate-700 appearance-none cursor-pointer"
+                                 value={locationFilter}
+                                 onChange={(e) => setLocationFilter(e.target.value)}
+                               >
+                                 <option value="All">-- Semua Lokasi Pengerjaan --</option>
+                                 <option value="BJM">Pengerjaan Unit di BJM</option>
+                                 <option value="PALARAN">Pengerjaan Unit di Palaran</option>
+                               </select>
+                               <IconFilter className="w-5 h-5 absolute right-4 top-3.5 text-slate-400 pointer-events-none" />
+                             </div>
+                             
                              <div className="bg-red-50 p-4 rounded-xl border border-red-100 flex justify-between items-center">
                                 <div>
                                   <p className="text-xs font-bold text-red-800 uppercase tracking-wider mb-0.5">Total Data Filtered</p>
@@ -1746,7 +1779,7 @@
                            <table className="w-full text-left border-collapse whitespace-nowrap">
                              <thead className="sticky top-0 bg-slate-50 z-20 shadow-sm border-b border-slate-200">
                                <tr className="text-slate-500 text-[11px] uppercase tracking-wider">
-                                 {['MO', 'CN', 'INSPESKI', 'PN', 'QTY REQ', 'READYNES PART', 'STTS SUPPLY KE AGM', 'PR', 'PO', 'STO', 'ETA'].map((col, i) => (
+                                 {['MO', 'CN', 'LOKASI PENGERJAAN', 'INSPESKI', 'PN', 'QTY REQ', 'READYNES PART', 'STTS SUPPLY KE AGM', 'PR', 'PO', 'STO', 'ETA'].map((col, i) => (
                                    <th key={i} className="px-6 py-4 font-bold border-b border-slate-100">{col}</th>
                                  ))}
                                </tr>
@@ -1756,7 +1789,7 @@
                                  if (filteredP1BjmData.length === 0) {
                                    return (
                                      <tr>
-                                       <td colSpan="11" className="px-6 py-12 text-center text-slate-400">
+                                       <td colSpan="12" className="px-6 py-12 text-center text-slate-400">
                                          <IconActivity className="w-8 h-8 mx-auto mb-3 opacity-50" />
                                          <p>Tidak ada data atau sedang memuat...</p>
                                        </td>
@@ -1766,7 +1799,30 @@
 
                                  return filteredP1BjmData.map((row, i) => (
                                    <tr key={i} className="hover:bg-slate-50 transition-colors">
-                                     {['MO', 'CN', 'INSPESKI', 'PN', 'QTY REQ', 'READYNES PART', 'STTS SUPPLY KE AGM', 'PR', 'PO', 'STO', 'ETA'].map((col, j) => {
+                                     {['MO', 'CN', 'LOKASI PENGERJAAN', 'INSPESKI', 'PN', 'QTY REQ', 'READYNES PART', 'STTS SUPPLY KE AGM', 'PR', 'PO', 'STO', 'ETA'].map((col, j) => {
+                                        if (col === 'LOKASI PENGERJAAN') {
+                                            const cnKey = Object.keys(row).find(k => k.toUpperCase() === 'CN' || k.toUpperCase().includes('NOMOR UNIT') || k.toUpperCase().includes('NO UNIT'));
+                                            const cnVal = cnKey ? String(row[cnKey]).toUpperCase().trim().replace(/\s+/g, ' ') : '';
+                                            const bjmUnits = ['HT 81050', 'HT 81047', 'HT 81197', 'HT 81149', 'HT 81112'];
+                                            
+                                            let locVal = '-';
+                                            if (bjmUnits.includes(cnVal)) {
+                                                locVal = 'BJM';
+                                            } else if (cnVal.startsWith('HT')) {
+                                                locVal = 'PALARAN';
+                                            }
+                                            
+                                            return (
+                                              <td key={j} className="px-6 py-3 font-medium">
+                                                {locVal !== '-' ? (
+                                                  <span className={`px-2 py-1 rounded text-[10px] font-bold tracking-wider ${locVal === 'BJM' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
+                                                    {locVal}
+                                                  </span>
+                                                ) : '-'}
+                                              </td>
+                                            );
+                                        }
+
                                         let searchCol = col.toUpperCase();
                                         if (searchCol === 'INSPESKI') searchCol = 'INSPEKSI';
                                         if (searchCol === 'READYNES PART') searchCol = 'READINESS';
