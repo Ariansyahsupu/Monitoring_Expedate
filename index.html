@@ -1398,6 +1398,31 @@
               );
           }, [dataCrossMatching, crossSearchTerm]);
 
+          const crossValueBreakdown = useMemo(() => {
+              let total = 0;
+              let intVal = 0;
+              let nonIntVal = 0;
+              filteredCrossData.forEach(mo => {
+                  mo.materials.forEach(mat => {
+                      if (mat.qtyDC > 0) {
+                          total += mat.valueDC;
+                          if (mat.bin && mat.bin.toUpperCase().includes('INT')) {
+                              intVal += mat.valueDC;
+                          } else {
+                              nonIntVal += mat.valueDC;
+                          }
+                      }
+                  });
+              });
+              return {
+                  total,
+                  intVal,
+                  nonIntVal,
+                  intPct: total > 0 ? Math.round((intVal / total) * 100) : 0,
+                  nonIntPct: total > 0 ? Math.round((nonIntVal / total) * 100) : 0
+              };
+          }, [filteredCrossData]);
+
           const searchSuggestions = useMemo(() => {
             const trimmedInput = mainTrackingInput.trim();
             if (!trimmedInput) return [];
@@ -1468,43 +1493,47 @@
 
           // Handle Export Cross Matching Excel
           const handleExportCrossMatching = () => {
-              const escapeHTML = (str) => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+              let csvContent = "\uFEFF"; // Menambahkan BOM agar Excel mengenali format UTF-8
               
-              let excelContent = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
-              excelContent += '<head><meta charset="utf-8"></head><body>';
-              excelContent += '<table border="1"><thead><tr>';
-              excelContent += '<th>ZMMR Status</th><th>Document MO</th><th>Plant</th><th>Priority</th><th>Material</th><th>Description</th><th>UoM</th><th>ZMMR Req</th><th>Local SOH</th><th>Rekomendasi</th><th>Stock DC PL28</th><th>Storage Bin</th><th>Batch</th><th>Value (Est)</th><th>Justifikasi</th><th>MO Readiness (%)</th>';
-              excelContent += '</tr></thead><tbody>';
+              // Menggunakan pemisah titik koma (;) agar langsung terpisah per kolom di pengaturan regional Indonesia
+              csvContent += "ZMMR Status;Document MO;Plant;Priority;Material;Description;UoM;ZMMR Req;Local SOH;Rekomendasi;Stock DC PL28;Storage Bin;Batch;Value (Est);Justifikasi;MO Readiness (%)\r\n";
               
               filteredCrossData.forEach(mo => {
                   mo.materials.forEach(mat => {
-                      excelContent += '<tr>';
-                      excelContent += `<td>${escapeHTML(mat.statDesc)}</td>`;
-                      excelContent += `<td>${escapeHTML(mo.id)}</td>`;
-                      excelContent += `<td>${escapeHTML(mo.plant)}</td>`;
-                      excelContent += `<td>${escapeHTML(mo.priority)}</td>`;
-                      excelContent += `<td>${escapeHTML(mat.material)}</td>`;
-                      excelContent += `<td>${escapeHTML(mat.desc)}</td>`;
-                      excelContent += `<td>${escapeHTML(mat.uom)}</td>`;
-                      excelContent += `<td>${escapeHTML(mat.qtyReqZMMR)}</td>`;
-                      excelContent += `<td>${escapeHTML(mat.localSoh)}</td>`;
-                      excelContent += `<td>${escapeHTML(mat.qtyReq)}</td>`;
-                      excelContent += `<td>${escapeHTML(mat.qtyDC)}</td>`;
-                      excelContent += `<td>${escapeHTML(mat.bin)}</td>`;
-                      excelContent += `<td>${escapeHTML(mat.batch)}</td>`;
-                      excelContent += `<td>${escapeHTML(mat.valueDC)}</td>`;
-                      excelContent += `<td>${escapeHTML(mat.justification)}</td>`;
-                      excelContent += `<td>${escapeHTML(mo.readinessPct)}%</td>`;
-                      excelContent += '</tr>';
+                      const escapeCSV = (val) => {
+                          if (val === null || val === undefined) return '""';
+                          const str = String(val).replace(/"/g, '""');
+                          return `"${str}"`;
+                      };
+
+                      const row = [
+                          escapeCSV(mat.statDesc),
+                          escapeCSV(mo.id),
+                          escapeCSV(mo.plant),
+                          escapeCSV(mo.priority),
+                          escapeCSV(mat.material),
+                          escapeCSV(mat.desc),
+                          escapeCSV(mat.uom),
+                          escapeCSV(mat.qtyReqZMMR),
+                          escapeCSV(mat.localSoh),
+                          escapeCSV(mat.qtyReq),
+                          escapeCSV(mat.qtyDC),
+                          escapeCSV(mat.bin),
+                          escapeCSV(mat.batch),
+                          escapeCSV(mat.valueDC),
+                          escapeCSV(mat.justification),
+                          escapeCSV(mo.readinessPct + '%')
+                      ];
+                      csvContent += row.join(";") + "\r\n";
                   });
               });
-              excelContent += '</tbody></table></body></html>';
 
-              const blob = new Blob([excelContent], { type: 'application/vnd.ms-excel' });
+              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
               const url = URL.createObjectURL(blob);
               const link = document.createElement("a");
               link.setAttribute("href", url);
-              link.setAttribute("download", `Analisa_Cross_Matching_${new Date().toISOString().split('T')[0]}.xls`);
+              // Disimpan dengan ekstensi .csv agar tidak diblokir oleh sistem keamanan Microsoft Excel
+              link.setAttribute("download", `Analisa_Cross_Matching_${new Date().toISOString().split('T')[0]}.csv`);
               document.body.appendChild(link);
               link.click();
               document.body.removeChild(link);
@@ -2272,35 +2301,47 @@
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center">
-                                <div className="p-4 bg-indigo-50 rounded-full mr-4">
-                                    <IconActivity className="w-8 h-8 text-indigo-600" />
+                            <div className="bg-gradient-to-br from-[#811D1D] to-[#9B2226] p-6 rounded-2xl border border-red-900/50 shadow-xl flex items-center hover:-translate-y-1 transition-transform duration-300">
+                                <div className="p-4 bg-white/10 rounded-2xl mr-4 shadow-inner">
+                                    <IconActivity className="w-8 h-8 text-white" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-bold text-slate-500 uppercase">Total MO Active</p>
-                                    <h3 className="text-3xl font-black text-slate-800">{filteredCrossData.length}</h3>
+                                    <p className="text-xs font-bold text-white/70 uppercase tracking-wider">Total MO Active</p>
+                                    <h3 className="text-3xl font-black text-white">{filteredCrossData.length}</h3>
                                 </div>
                             </div>
-                            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center">
-                                <div className="p-4 bg-emerald-50 rounded-full mr-4">
-                                    <IconCheckCircle2 className="w-8 h-8 text-emerald-600" />
+                            <div className="bg-gradient-to-br from-[#811D1D] to-[#9B2226] p-6 rounded-2xl border border-red-900/50 shadow-xl flex items-center hover:-translate-y-1 transition-transform duration-300">
+                                <div className="p-4 bg-white/10 rounded-2xl mr-4 shadow-inner">
+                                    <IconCheckCircle2 className="w-8 h-8 text-white" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-bold text-slate-500 uppercase">Avg DC Readiness</p>
-                                    <h3 className="text-3xl font-black text-slate-800">
+                                    <p className="text-xs font-bold text-white/70 uppercase tracking-wider">Avg DC Readiness</p>
+                                    <h3 className="text-3xl font-black text-white">
                                         {filteredCrossData.length > 0 ? Math.round(filteredCrossData.reduce((acc, curr) => acc + curr.readinessPct, 0) / filteredCrossData.length) : 0}%
                                     </h3>
                                 </div>
                             </div>
-                            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center">
-                                <div className="p-4 bg-amber-50 rounded-full mr-4">
-                                    <IconPieChart className="w-8 h-8 text-amber-600" />
+                            <div className="bg-gradient-to-br from-[#811D1D] to-[#9B2226] p-6 rounded-2xl border border-red-900/50 shadow-xl flex flex-col justify-center hover:-translate-y-1 transition-transform duration-300">
+                                <div className="flex items-center mb-3">
+                                    <div className="p-3 bg-white/10 rounded-2xl mr-3 shadow-inner">
+                                        <IconPieChart className="w-6 h-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-bold text-white/70 uppercase tracking-wider">Total Value Potential</p>
+                                        <h3 className="text-xl font-black text-white">
+                                            {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(crossValueBreakdown.total)}
+                                        </h3>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="text-sm font-bold text-slate-500 uppercase">Total Value Potential</p>
-                                    <h3 className="text-xl md:text-2xl font-black text-slate-800">
-                                        {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(filteredCrossData.reduce((acc, curr) => acc + curr.totalValue, 0))}
-                                    </h3>
+                                <div className="flex flex-col space-y-1.5 pt-3 border-t border-white/20">
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="font-bold text-white/80 flex items-center">Non-INT (Ready) <span className="text-red-200 ml-1">({crossValueBreakdown.nonIntPct}%)</span></span>
+                                        <span className="font-extrabold text-white">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(crossValueBreakdown.nonIntVal)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="font-bold text-white/80 flex items-center">INT (Intransit) <span className="text-amber-300 ml-1">({crossValueBreakdown.intPct}%)</span></span>
+                                        <span className="font-extrabold text-white">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(crossValueBreakdown.intVal)}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -2308,14 +2349,14 @@
                         <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
                            <div className="overflow-x-auto max-h-[800px] custom-scrollbar">
                              <table className="w-full text-left border-collapse whitespace-nowrap">
-                               <thead className="sticky top-0 bg-slate-50 z-20 shadow-sm border-b border-slate-200">
-                                 <tr className="text-slate-500 text-[11px] uppercase tracking-wider">
-                                   <th className="px-6 py-4 font-bold border-b border-slate-100">Document MO</th>
-                                   <th className="px-6 py-4 font-bold border-b border-slate-100">Plant</th>
-                                   <th className="px-6 py-4 font-bold border-b border-slate-100">Priority</th>
-                                   <th className="px-6 py-4 font-bold border-b border-slate-100 w-1/4">Kesiapan DC Palaran</th>
-                                   <th className="px-6 py-4 font-bold border-b border-slate-100">Estimasi Value</th>
-                                   <th className="px-6 py-4 font-bold border-b border-slate-100 text-center">Action</th>
+                               <thead className="sticky top-0 z-20 shadow-md">
+                                 <tr className="bg-gradient-to-r from-[#9B2226] to-[#70161A] text-white text-[11px] uppercase tracking-wider border-b border-red-900">
+                                   <th className="px-6 py-4 font-bold border-r border-red-800/30">Document MO</th>
+                                   <th className="px-6 py-4 font-bold border-r border-red-800/30">Plant</th>
+                                   <th className="px-6 py-4 font-bold border-r border-red-800/30">Priority</th>
+                                   <th className="px-6 py-4 font-bold w-1/4 border-r border-red-800/30">Kesiapan DC Palaran</th>
+                                   <th className="px-6 py-4 font-bold border-r border-red-800/30">Estimasi Value</th>
+                                   <th className="px-6 py-4 font-bold text-center">Action</th>
                                  </tr>
                                </thead>
                                <tbody className="text-sm divide-y divide-slate-100">
@@ -2329,7 +2370,7 @@
                                  ) : (
                                    filteredCrossData.map((mo, idx) => (
                                      <React.Fragment key={`cross-${mo.id}-${idx}`}>
-                                       <tr className={`hover:bg-slate-50 transition-colors ${expandedCrossMo === mo.id ? 'bg-slate-50/80' : ''}`}>
+                                       <tr className={`hover:bg-red-50/40 transition-colors ${expandedCrossMo === mo.id ? 'bg-red-50/60' : ''}`}>
                                           <td className="px-6 py-4 font-extrabold text-[#9B2226]">{mo.id}</td>
                                           <td className="px-6 py-4 font-bold text-slate-700">{mo.plant || '-'}</td>
                                           <td className="px-6 py-4">
@@ -2363,11 +2404,11 @@
                                           </td>
                                        </tr>
                                        {expandedCrossMo === mo.id && (
-                                         <tr className="bg-slate-50 border-b-2 border-slate-200">
+                                         <tr className="bg-slate-50 border-b-2 border-red-100">
                                             <td colSpan="6" className="px-6 py-4">
-                                                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-inner">
+                                                <div className="bg-white border border-red-100 rounded-xl overflow-hidden shadow-inner">
                                                     <table className="w-full text-left text-xs">
-                                                        <thead className="bg-slate-100 text-slate-500 font-bold uppercase tracking-wider">
+                                                        <thead className="bg-[#fdf2f2] text-[#9B2226] font-bold uppercase tracking-wider border-b border-red-100">
                                                             <tr>
                                                                 <th className="px-4 py-3">Material</th>
                                                                 <th className="px-4 py-3">Description</th>
