@@ -349,6 +349,37 @@
                     return '';
                 };
 
+                // Parser yang sangat kuat dan bersih untuk mengeliminasi Rupiah, IDR, spasi, dan format ribuan
+                const parseNumeric = (raw) => {
+                    if (!raw) return 0;
+                    let str = String(raw).trim();
+                    const isNegative = str.includes('(') || str.includes('-');
+                    str = str.replace(/[^\d.,]/g, '');
+                    if (!str || str === '.' || str === ',') return 0;
+                    
+                    if (str.includes('.') && str.includes(',')) {
+                        if (str.lastIndexOf(',') > str.lastIndexOf('.')) {
+                            str = str.replace(/\./g, '').replace(',', '.');
+                        } else {
+                            str = str.replace(/,/g, '');
+                        }
+                    } else if (str.includes(',')) {
+                        const p = str.split(',');
+                        if (p[p.length - 1].length === 3 && p.length > 1) {
+                            str = str.replace(/,/g, '');
+                        } else {
+                            str = str.replace(/,/g, '.');
+                        }
+                    } else if (str.includes('.')) {
+                        const p = str.split('.');
+                        if (p.length > 2 || (p.length === 2 && p[1].length === 3)) {
+                            str = str.replace(/\./g, '');
+                        }
+                    }
+                    let num = parseFloat(str) || 0;
+                    return isNegative ? -num : num;
+                };
+
                 if (syncCount === 0) setLoadingText('Mengunduh Data Utama (MO ZMMR001)...');
                 try { 
                     csvTextMB25 = await fetchWithFallback(pubUrlMB25); 
@@ -440,10 +471,10 @@
                             const binColIdx = headers.findIndex(h => h === 'STORAGE BIN');
                             const batchColIdx = headers.findIndex(h => h === 'BATCH');
                             const uomColIdx = headers.findIndex(h => h === 'BASE UNIT OF MEASURE' || h === 'BUN');
-                            const valColIdx = headers.findIndex(h => h === 'VALUE UNRESTR' || h.includes('VALUE'));
+                            const valColIdx = headers.findIndex(h => h === 'VALUE UNRESTR' || h.includes('VALUE UNRESTR') || h === 'VALUE UNRESTRICTED' || h.includes('VALUE') || h === 'NILAI');
                             
-                            let qtyColIdx = headers.findIndex(h => h === 'UNRESTRICTED');
-                            if (qtyColIdx === -1) qtyColIdx = headers.findIndex(h => h === 'TOTAL STOCK');
+                            let qtyColIdx = headers.findIndex(h => h === 'UNRESTRICTED' || h.includes('UNRESTRICTED'));
+                            if (qtyColIdx === -1) qtyColIdx = headers.findIndex(h => h === 'TOTAL STOCK' || h.includes('TOTAL STOCK'));
 
                             if (matColIdx === -1 || qtyColIdx === -1) return map;
 
@@ -461,6 +492,13 @@
                                 if (plantVal !== '') lastValidPlant = plantVal;
                                 
                                 const sloc = slocColIdx !== -1 && row[slocColIdx] ? row[slocColIdx].replace(/"/g, '').trim().toUpperCase() : '';
+                                const batch = batchColIdx !== -1 && row[batchColIdx] ? row[batchColIdx].replace(/"/g, '').trim() : '';
+
+                                // Pengecekan Batch Damaged / Used / Bekas / Ex-Unit
+                                const batchUpper = batch.toUpperCase();
+                                const isDamaged = batchUpper.includes('DAMAGED') || batchUpper.includes('USED') || batchUpper.includes('EX-UNIT') || batchUpper.includes('BEKAS');
+                                
+                                if (isDamaged) continue;
 
                                 if (lastValidMatNo) {
                                     if (!map.has(lastValidMatNo)) {
@@ -484,17 +522,9 @@
                                     if (qty > 0) {
                                         // Pisahkan alokasi untuk DC Palaran (PL28) dan Local SOH
                                         if (lastValidPlant.includes('28') || sloc.includes('28') || lastValidPlant === 'PL28' || sloc === 'PL28') {
-                                            const rawVal = valColIdx !== -1 && row[valColIdx] ? row[valColIdx].replace(/"/g, '').trim() : '0';
-                                            let cleanValStr = rawVal;
-                                            if (rawVal.includes('.') && rawVal.includes(',')) {
-                                                cleanValStr = rawVal.lastIndexOf(',') > rawVal.lastIndexOf('.') ? rawVal.replace(/\./g, '').replace(',', '.') : rawVal.replace(/,/g, '');
-                                            } else {
-                                                cleanValStr = rawVal.replace(/,/g, '');
-                                            }
-                                            const value = parseFloat(cleanValStr) || 0;
+                                            const value = parseNumeric(valColIdx !== -1 ? row[valColIdx] : '0');
                                             
                                             const bin = binColIdx !== -1 && row[binColIdx] ? row[binColIdx].replace(/"/g, '').trim() : '';
-                                            const batch = batchColIdx !== -1 && row[batchColIdx] ? row[batchColIdx].replace(/"/g, '').trim() : '';
                                             const uom = uomColIdx !== -1 && row[uomColIdx] ? row[uomColIdx].replace(/"/g, '').trim() : '';
 
                                             matData.dcQty += qty;
@@ -548,7 +578,7 @@
                                     if (!orderId) return;
 
                                     const matNo = String(item['Material'] || '').replace(/^0+/, '').toUpperCase();
-                                    const reqQty = Number(String(item['Qty Res'] || item['Requirement Quantity'] || item['Quantity'] || 0).replace(/,/g, '')) || 0;
+                                    const reqQty = parseNumeric(item['Qty Res'] || item['Requirement Quantity'] || item['Quantity'] || 0);
                                     
                                     if (reqQty > 0) {
                                         const plantCode = String(item['Plant'] || '').trim().toUpperCase();
@@ -850,20 +880,7 @@
                                         sloc.includes('DAMAGED') || sloc.includes('EX') || sloc.includes('USED');
 
                                     if (!isDamaged) {
-                                        const rawQty = row[qtyColIdx] ? row[qtyColIdx].replace(/"/g, '').trim() : '0';
-                                        
-                                        let cleanNumStr = rawQty;
-                                        if (rawQty.includes('.') && rawQty.includes(',')) {
-                                           if (rawQty.lastIndexOf(',') > rawQty.lastIndexOf('.')) {
-                                               cleanNumStr = rawQty.replace(/\./g, '').replace(',', '.');
-                                           } else {
-                                               cleanNumStr = rawQty.replace(/,/g, '');
-                                           }
-                                        } else {
-                                           cleanNumStr = rawQty.replace(/,/g, '');
-                                        }
-
-                                        const qty = parseFloat(cleanNumStr) || 0;
+                                        const qty = parseNumeric(row[qtyColIdx]);
                                         
                                         if (qty > 0) {
                                             if (!map.has(lastValidMatNo)) {
@@ -930,9 +947,9 @@
                           if (!orderId) return;
                           
                           const reservationNo = String(item['Reservation'] || '').replace(/^0+/, '').trim();
-                          const qtyReq = Number(String(item['Qty Res'] || item['Requirement Quantity'] || 0).replace(/,/g, '')) || 0;
-                          const qtyRec = Number(String(item['GR_Quantity'] || item['GI_Quantity'] || item['Removed quantity'] || 0).replace(/,/g, '')) || 0;
-                          const qtyGI = Number(String(item['GI_Quantity'] || item['Removed quantity'] || 0).replace(/,/g, '')) || 0;
+                          const qtyReq = parseNumeric(item['Qty Res'] || item['Requirement Quantity'] || 0);
+                          const qtyRec = parseNumeric(item['GR_Quantity'] || item['GI_Quantity'] || item['Removed quantity'] || 0);
+                          const qtyGI = parseNumeric(item['GI_Quantity'] || item['Removed quantity'] || 0);
 
                           let equipment = String(item['Equipment'] || '').trim();
                           if (equipment === '-' || equipment.toUpperCase() === 'N/A') equipment = '';
@@ -1529,7 +1546,7 @@
 
               <nav className="bg-[#9B2226] w-full shadow-lg sticky top-0 z-50">
                 <div className="w-full border-b border-red-800/50">
-                   <div className="max-w-[1400px] mx-auto px-6 py-2 flex justify-end items-center space-x-6">
+                   <div className="w-full mx-auto px-6 py-2 flex justify-end items-center space-x-6">
                       {isOfflineDemo && (
                         <span className="bg-amber-500/20 text-amber-200 text-xs px-3 py-1 rounded-full border border-amber-500/30 font-bold">
                           Offline Simulator Mode (CORS Blocked)
@@ -1544,7 +1561,7 @@
                    </div>
                 </div>
 
-                <div className="max-w-[1400px] mx-auto px-6 py-3 flex flex-col md:flex-row justify-between items-center">
+                <div className="w-full mx-auto px-6 py-3 flex flex-col md:flex-row justify-between items-center">
                   <div className="flex items-center space-x-8 mb-4 md:mb-0">
                     <div 
                       className="flex items-center space-x-3 cursor-pointer group"
@@ -1735,7 +1752,7 @@
                        </div>
                     </div>
                     
-                    <div className="max-w-[1400px] mx-auto px-6 py-16 grid grid-cols-1 md:grid-cols-3 gap-10">
+                    <div className="w-full mx-auto px-6 py-16 grid grid-cols-1 md:grid-cols-3 gap-10">
                        <div className="text-center p-6 group">
                          <div className="w-20 h-20 mx-auto bg-gradient-to-br from-white to-slate-100 shadow-md border border-slate-200 rounded-full flex items-center justify-center mb-6 text-[#9B2226] group-hover:scale-110 transition-transform"><IconPackage className="w-8 h-8" /></div>
                          <h3 className="text-lg font-extrabold text-slate-800 mb-3">Pantau Status Order</h3>
@@ -1762,7 +1779,7 @@
                     </div>
                     <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-[#9B2226] rounded-full blur-[120px] opacity-20 pointer-events-none"></div>
                     
-                    <div className="p-8 max-w-[1400px] mx-auto space-y-8 animate-fade-in relative z-10">
+                    <div className="p-8 w-full mx-auto space-y-8 animate-fade-in relative z-10">
                       {zmmrWarning && !isOfflineDemo && (
                         <div className="bg-amber-50 border border-amber-200 text-amber-700 p-4 rounded-xl flex items-center shadow-sm">
                           <IconInfo className="w-6 h-6 mr-3 text-amber-500 flex-shrink-0" />
@@ -2020,7 +2037,7 @@
                     </div>
                     <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-[#9B2226] rounded-full blur-[120px] opacity-20 pointer-events-none"></div>
                     
-                    <div className="p-8 max-w-[1400px] mx-auto space-y-8 animate-fade-in relative z-10">
+                    <div className="p-8 w-full mx-auto space-y-8 animate-fade-in relative z-10">
                        <div className="flex flex-col md:flex-row justify-between items-center bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/20 shadow-xl">
                          <div className="flex items-center mb-4 md:mb-0">
                            <div className="bg-[#9B2226] p-3 rounded-xl mr-4 shadow-lg">
@@ -2217,7 +2234,7 @@
 
                 {currentView === 'cross_matching' && (
                   <div className="w-full bg-[#F8FAFC] relative overflow-hidden min-h-[calc(100vh-80px)] pb-12">
-                     <div className="p-8 max-w-[1400px] mx-auto space-y-8 animate-fade-in relative z-10">
+                     <div className="p-8 w-full mx-auto space-y-8 animate-fade-in relative z-10">
                         
                         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center bg-white p-6 rounded-2xl border border-slate-200 shadow-xl gap-6">
                            <div className="flex items-center">
